@@ -17,7 +17,7 @@
   --color-leah: var(--leah);
   --color-jacob: var(--jacob);
   --color-lucian: var(--lucian);
-  --color-liquidity-green: var(--liquidity-green);
+  --color-liquidity-green: var(--green-100);
   --color-brand-first: var(--brand-first);
   --color-brand-second: var(--brand-second);
   --color-brand-third: var(--brand-third);
@@ -270,7 +270,7 @@
     --leah: var(--dark);
     --jacob: var(--yellow-l);
     --lucian: var(--red-l);
-    --liquidity-green: var(--lg-l);
+    --liquidity-green: var(--green-100);
 
     --brand-first: var(--yellow-l);
     --brand-second: var(--yellow-l);
