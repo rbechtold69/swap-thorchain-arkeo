@@ -152,7 +152,7 @@ export const SwapLimit = ({ quote }: SwapLimitProps) => {
           </div>
         ) : (
           <ThemeButton
-            className={cn('h-6', activePreset === 'market' && 'bg-liquidity-green/20')}
+            className={cn('h-6', activePreset === 'market' && 'bg-liquidity-green')}
             variant="secondarySmall"
             onClick={() => applyPreset(0)}
           >
