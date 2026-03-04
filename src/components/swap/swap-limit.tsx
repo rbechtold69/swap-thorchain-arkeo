@@ -125,25 +125,25 @@ export const SwapLimit = ({ quote }: SwapLimitProps) => {
         </div>
       </div>
 
-      <div className="my-3 flex items-center gap-2">
+      <div className="my-3 flex items-center gap-2 overflow-hidden">
         <DecimalInput
-          className="text-leah w-full bg-transparent text-2xl font-medium outline-none"
+          className="text-leah field-sizing-content bg-transparent text-2xl font-medium outline-none"
           amount={(pricePerUnit ?? expectedBuyAmountPerUnit)?.toSignificant() ?? ''}
           onAmountChange={v => setPricePerUnit(new USwapNumber(v))}
           autoComplete="off"
         />
-        <span className="text-thor-gray text-2xl font-medium">{assetTo?.ticker}</span>
+        <div className="text-txt-label-small text-2xl font-medium">{assetTo?.ticker}</div>
       </div>
 
       <div className="flex items-center space-x-1">
         {activePreset === 'custom' && differencePercent ? (
           <div className="flex items-center">
-            <ThemeButton className="border-abraham bg-liquidity-green/20 h-6 rounded-r-none border-r px-2 text-xs" variant="secondarySmall">
+            <ThemeButton className="border-abraham bg-liquidity-green h-6 rounded-r-none border-r px-2 text-xs" variant="secondarySmall">
               {differencePercent.gte(0) ? '+' : ''}
               {differencePercent.toFixed(1)}%
             </ThemeButton>
             <ThemeButton
-              className="bg-liquidity-green/20 h-6 rounded-l-none px-1"
+              className="bg-liquidity-green h-6 rounded-l-none px-1"
               variant="secondarySmall"
               onClick={() => expectedBuyAmountPerUnit && setPricePerUnit(expectedBuyAmountPerUnit)}
             >
@@ -160,11 +160,11 @@ export const SwapLimit = ({ quote }: SwapLimitProps) => {
           </ThemeButton>
         )}
 
-        <ThemeButton className={cn('h-6', activePreset === 5 && 'bg-liquidity-green/20')} variant="secondarySmall" onClick={() => applyPreset(5)}>
+        <ThemeButton className={cn('h-6', activePreset === 5 && 'bg-liquidity-green')} variant="secondarySmall" onClick={() => applyPreset(5)}>
           +5%
         </ThemeButton>
 
-        <ThemeButton className={cn('h-6', activePreset === 10 && 'bg-liquidity-green/20')} variant="secondarySmall" onClick={() => applyPreset(10)}>
+        <ThemeButton className={cn('h-6', activePreset === 10 && 'bg-liquidity-green')} variant="secondarySmall" onClick={() => applyPreset(10)}>
           +10%
         </ThemeButton>
       </div>

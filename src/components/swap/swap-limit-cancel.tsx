@@ -232,11 +232,7 @@ export const SwapLimitCancel = ({ isOpen, onOpenChange, mode, transaction }: Swa
                 <div className="border-t p-4">
                   <div className="flex gap-4">
                     <div className="flex-1 space-y-1">
-                      <div className="text-thor-gray flex items-center text-xs font-medium">
-                        <span>When 1</span>
-                        {assetFrom && <img className="mx-1 h-4 w-4" src={assetFrom.logoURI} alt={assetFrom.ticker} />}
-                        <span>{assetFrom.ticker} is worth</span>
-                      </div>
+                      <div className="text-thor-gray flex items-center text-xs font-medium">When 1 {assetFrom?.ticker} is worth</div>
                       <DecimalInput
                         className="text-leah w-full bg-transparent text-lg font-semibold outline-none"
                         amount={(pricePerUnit ?? currentPricePerUnit)?.toSignificant() ?? ''}
