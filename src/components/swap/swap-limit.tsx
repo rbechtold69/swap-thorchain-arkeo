@@ -152,7 +152,7 @@ export const SwapLimit = ({ quote }: SwapLimitProps) => {
           </div>
         ) : (
           <ThemeButton
-            className={cn('h-6', activePreset === 'market' && 'bg-liquidity-green')}
+            className={cn('h-6', activePreset === 'market' ? 'bg-liquidity-green text-txt-green-default' : 'text-txt-btn-small-default')}
             variant="secondarySmall"
             onClick={() => applyPreset(0)}
           >
@@ -160,11 +160,19 @@ export const SwapLimit = ({ quote }: SwapLimitProps) => {
           </ThemeButton>
         )}
 
-        <ThemeButton className={cn('h-6', activePreset === 5 && 'bg-liquidity-green')} variant="secondarySmall" onClick={() => applyPreset(5)}>
+        <ThemeButton
+          className={cn('h-6', activePreset === 5 ? 'bg-liquidity-green text-txt-green-default' : 'text-txt-btn-small-default')}
+          variant="secondarySmall"
+          onClick={() => applyPreset(5)}
+        >
           +5%
         </ThemeButton>
 
-        <ThemeButton className={cn('h-6', activePreset === 10 && 'bg-liquidity-green')} variant="secondarySmall" onClick={() => applyPreset(10)}>
+        <ThemeButton
+          className={cn('h-6', activePreset === 10 ? 'bg-liquidity-green text-txt-green-default' : 'text-txt-btn-small-default')}
+          variant="secondarySmall"
+          onClick={() => applyPreset(10)}
+        >
           +10%
         </ThemeButton>
       </div>
