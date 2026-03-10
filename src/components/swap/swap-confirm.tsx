@@ -45,8 +45,6 @@ export const SwapConfirm = ({ quote }: SwapConfirmProps) => {
   const { inbound, outbound, liquidity, platform, included } = resolveFees(quote, rates)
   const { openDialog } = useDialog()
 
-  console.log({ inbound, outbound, liquidity, platform, included })
-
   const limitBuyAmount = useMemo(() => {
     if (!limitSwapBuyAmount) return null
     return USwapNumber.fromBigInt(BigInt(limitSwapBuyAmount), 8)
