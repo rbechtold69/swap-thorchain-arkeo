@@ -185,9 +185,9 @@ export const TransactionHistoryDialog = ({ isOpen, onOpenChange }: HistoryDialog
                     </div>
 
                     {(showLimitSwapActions || showRQ) && (
-                      <div className="flex items-center justify-end border-t py-1">
+                      <div className="flex items-center justify-end border-t mt-3 py-1">
                         {showRQ && (
-                          <div className="flex items-center justify-end py-1 pl-4">
+                          <div className="flex items-center justify-end pt-1 pl-4">
                             <div className="text-thor-gray text-xs font-semibold">
                               {tx.expiration && (
                                 <span>
