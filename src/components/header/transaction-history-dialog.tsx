@@ -22,7 +22,7 @@ import { useRates } from '@/hooks/use-rates'
 import { useSyncTransactions } from '@/hooks/use-sync-transactions'
 import { useSelectedAccount } from '@/hooks/use-wallets'
 import { formatExpiration } from '@/lib/swap-helpers'
-import { cn, truncate } from '@/lib/utils'
+import { cn, toCurrencyFixed, truncate } from '@/lib/utils'
 import { isTxPending, Transaction, useTransactions } from '@/store/transaction-store'
 
 interface HistoryDialogProps {
@@ -136,7 +136,9 @@ export const TransactionHistoryDialog = ({ isOpen, onOpenChange }: HistoryDialog
                           <span className="text-leah text-sm font-semibold">
                             <DecimalText className="break-all" amount={amountFrom.toSignificant()} symbol={tx.assetFrom?.ticker} />
                           </span>
-                          <span className="text-thor-gray text-xs font-medium">{fiatFrom?.toCurrency('$', { trimTrailingZeros: false })}</span>
+                          <span className="text-thor-gray text-xs font-medium">
+                            {fiatFrom && toCurrencyFixed(fiatFrom.toCurrency('$', { trimTrailingZeros: false }))}
+                          </span>
                         </div>
                       </div>
                       <div className="flex flex-col items-center justify-center px-1">
@@ -178,14 +180,16 @@ export const TransactionHistoryDialog = ({ isOpen, onOpenChange }: HistoryDialog
                           <span className="text-leah text-sm font-semibold">
                             <DecimalText className="break-all" amount={amountTo.toSignificant()} symbol={tx.assetTo?.ticker} />
                           </span>
-                          <span className="text-thor-gray text-xs font-medium">{fiatTo?.toCurrency('$', { trimTrailingZeros: false })}</span>
+                          <span className="text-thor-gray text-xs font-medium">
+                            {fiatTo && toCurrencyFixed(fiatTo.toCurrency('$', { trimTrailingZeros: false }))}
+                          </span>
                         </div>
                         {tx.assetTo && <AssetIcon asset={tx.assetTo} />}
                       </div>
                     </div>
 
                     {(showLimitSwapActions || showRQ) && (
-                      <div className="flex items-center justify-end border-t mt-3 py-1">
+                      <div className="mt-3 flex items-center justify-end border-t py-1">
                         {showRQ && (
                           <div className="flex items-center justify-end pt-1 pl-4">
                             <div className="text-thor-gray text-xs font-semibold">

@@ -16,7 +16,7 @@ import { InfoTooltip } from '@/components/tooltip'
 import { useRates, useSwapRates } from '@/hooks/use-rates'
 import { useAssetFrom, useAssetTo, useSlippage } from '@/hooks/use-swap'
 import { formatExpiration, providerLabel, resolveFees, resolvePriceImpact } from '@/lib/swap-helpers'
-import { cn, truncate } from '@/lib/utils'
+import { cn, toCurrencyFixed, truncate } from '@/lib/utils'
 import { useIsLimitSwap, useLimitSwapBuyAmount } from '@/store/limit-swap-store'
 
 interface SwapConfirmProps {
@@ -44,6 +44,8 @@ export const SwapConfirm = ({ quote }: SwapConfirmProps) => {
 
   const { inbound, outbound, liquidity, platform, included } = resolveFees(quote, rates)
   const { openDialog } = useDialog()
+
+  console.log({ inbound, outbound, liquidity, platform, included })
 
   const limitBuyAmount = useMemo(() => {
     if (!limitSwapBuyAmount) return null
@@ -79,7 +81,7 @@ export const SwapConfirm = ({ quote }: SwapConfirmProps) => {
                   <DecimalText amount={sellAmount.toSignificant()} /> {assetFrom.ticker}
                 </span>
                 <span className="text-thor-gray text-sm">
-                  {rateFrom ? sellAmount.mul(rateFrom).toCurrency('$', { trimTrailingZeros: false }) : 'n/a'}
+                  {rateFrom ? toCurrencyFixed(sellAmount.mul(rateFrom).toCurrency('$', { trimTrailingZeros: false })) : 'n/a'}
                 </span>
               </div>
             </div>
@@ -95,7 +97,7 @@ export const SwapConfirm = ({ quote }: SwapConfirmProps) => {
                   <DecimalText amount={displayBuyAmount.toSignificant()} /> {assetTo.ticker}
                 </span>
                 <span className="text-thor-gray text-sm">
-                  {rateTo ? displayBuyAmount.mul(rateTo).toCurrency('$', { trimTrailingZeros: false }) : 'n/a'}
+                  {rateTo ? toCurrencyFixed(displayBuyAmount.mul(rateTo).toCurrency('$', { trimTrailingZeros: false })) : 'n/a'}
                 </span>
               </div>
               <AssetIcon asset={assetTo} />
@@ -184,7 +186,7 @@ export const SwapConfirm = ({ quote }: SwapConfirmProps) => {
                     <span className="text-leah font-semibold">
                       <DecimalText amount={displayBuyAmount.toSignificant()} symbol={assetTo.ticker} />
                     </span>
-                    {rateTo && <span className="font-medium">{displayBuyAmount.mul(rateTo).toCurrency('$', { trimTrailingZeros: false })}</span>}
+                    {rateTo && <span className="font-medium">{toCurrencyFixed(displayBuyAmount.mul(rateTo).toCurrency('$', { trimTrailingZeros: false }))}</span>}
                   </div>
                 </div>
               </>
@@ -200,7 +202,7 @@ export const SwapConfirm = ({ quote }: SwapConfirmProps) => {
                 {slippage && expectedBuyAmountMaxSlippage ? (
                   <span className="text-leah font-semibold">
                     <DecimalText amount={expectedBuyAmountMaxSlippage.toSignificant()} symbol={assetTo.ticker} />
-                    {rateTo && ` (${expectedBuyAmountMaxSlippage.mul(rateTo).toCurrency('$', { trimTrailingZeros: false })})`}
+                    {rateTo && ` (${toCurrencyFixed(expectedBuyAmountMaxSlippage.mul(rateTo).toCurrency('$', { trimTrailingZeros: false }))})`}
                   </span>
                 ) : (
                   <span className="text-lucian font-semibold">Not Protected</span>
@@ -230,7 +232,7 @@ export const SwapConfirm = ({ quote }: SwapConfirmProps) => {
                   <InfoTooltip>These fees are already included in the rate — you don't pay them separately.</InfoTooltip>
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="text-leah font-semibold">{included.toCurrency('$', { trimTrailingZeros: false })}</span>
+                  <span className="text-leah font-semibold">{toCurrencyFixed(included.toCurrency('$', { trimTrailingZeros: false }))}</span>
                   <Icon name="eye" className="size-5" />
                 </div>
               </div>

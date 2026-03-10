@@ -12,6 +12,7 @@ import { useQuote } from '@/hooks/use-quote'
 import { useSwapRates } from '@/hooks/use-rates'
 import { useAssetTo, useSetAssetTo } from '@/hooks/use-swap'
 import { useIsLimitSwap, useLimitSwapBuyAmount } from '@/store/limit-swap-store'
+import { toCurrencyFixed } from '@/lib/utils'
 
 export const SwapInputTo = ({ priceImpact }: { priceImpact?: USwapNumber }) => {
   const assetTo = useAssetTo()
@@ -49,7 +50,7 @@ export const SwapInputTo = ({ priceImpact }: { priceImpact?: USwapNumber }) => {
             disabled
           />
           <div className="flex gap-2 text-sm font-medium">
-            <span className="text-thor-gray">{fiatValueTo.toCurrency('$', { trimTrailingZeros: false })}</span>
+            <span className="text-thor-gray">{toCurrencyFixed(fiatValueTo.toCurrency('$', { trimTrailingZeros: false }))}</span>
             {priceImpact && (
               <Tooltip content="Price Impact">
                 <span>

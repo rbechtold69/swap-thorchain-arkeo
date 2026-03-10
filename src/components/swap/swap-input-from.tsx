@@ -11,6 +11,7 @@ import { ThemeButton } from '@/components/theme-button'
 import { useBalance } from '@/hooks/use-balance'
 import { useSwapRates } from '@/hooks/use-rates'
 import { useAssetFrom, useSetAssetFrom, useSwap } from '@/hooks/use-swap'
+import { toCurrencyFixed } from '@/lib/utils'
 
 export const SwapInputFrom = () => {
   const assetFrom = useAssetFrom()
@@ -49,7 +50,7 @@ export const SwapInputFrom = () => {
             onAmountChange={e => setAmountFrom(e)}
             autoComplete="off"
           />
-          <div className="text-thor-gray text-sm font-medium">{fiatValueFrom.toCurrency('$', { trimTrailingZeros: false })}</div>
+          <div className="text-thor-gray text-sm font-medium">{toCurrencyFixed(fiatValueFrom.toCurrency('$', { trimTrailingZeros: false }))}</div>
         </div>
         <div className="flex cursor-pointer items-center gap-2" onClick={onClick}>
           <AssetIcon asset={assetFrom} />
