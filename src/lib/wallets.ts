@@ -58,10 +58,19 @@ export function getUSwap() {
         uSwap: process.env.NEXT_PUBLIC_USWAP_API_KEY
       },
       rpcUrls: {
-        // Route ETH RPC through Arkeo sentinel when configured, with fallbacks
+        // Route EVM chains through Arkeo sentinel when available, with fallbacks
         [Chain.Ethereum]: getArkeoRpcUrls('ethereum').length > 0
           ? getArkeoRpcUrls('ethereum')
-          : ['https://eth.llamarpc.com', 'https://ethereum-rpc.publicnode.com']
+          : ['https://eth.llamarpc.com', 'https://ethereum-rpc.publicnode.com'],
+        [Chain.BinanceSmartChain]: getArkeoRpcUrls('bsc').length > 0
+          ? getArkeoRpcUrls('bsc')
+          : ['https://bsc-dataseed.binance.org'],
+        [Chain.Base]: getArkeoRpcUrls('base').length > 0
+          ? getArkeoRpcUrls('base')
+          : ['https://mainnet.base.org'],
+        [Chain.Polygon]: getArkeoRpcUrls('polygon').length > 0
+          ? getArkeoRpcUrls('polygon')
+          : ['https://polygon-rpc.com'],
       },
       envs: {
         apiUrl: process.env.NEXT_PUBLIC_USWAP_API_URL,
