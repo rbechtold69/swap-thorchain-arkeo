@@ -1,4 +1,5 @@
 import { Chain, getEIP6963Wallets, USwap, WalletOption } from '@tcswap/core'
+import { getArkeoRpcUrls } from './arkeo-provider'
 import { EVMPlugin } from '@tcswap/plugins/evm'
 import { NearPlugin } from '@tcswap/plugins/near'
 import { RadixPlugin } from '@tcswap/plugins/radix'
@@ -57,7 +58,10 @@ export function getUSwap() {
         uSwap: process.env.NEXT_PUBLIC_USWAP_API_KEY
       },
       rpcUrls: {
-        [Chain.Ethereum]: ['https://eth.llamarpc.com', 'https://ethereum-rpc.publicnode.com']
+        // Route ETH RPC through Arkeo sentinel when configured, with fallbacks
+        [Chain.Ethereum]: getArkeoRpcUrls('ethereum').length > 0
+          ? getArkeoRpcUrls('ethereum')
+          : ['https://eth.llamarpc.com', 'https://ethereum-rpc.publicnode.com']
       },
       envs: {
         apiUrl: process.env.NEXT_PUBLIC_USWAP_API_URL,

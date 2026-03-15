@@ -1,6 +1,7 @@
 import { AssetValue, Chain, getChainConfig } from '@tcswap/core'
 import { BalanceResponse, QuoteRequest, USwapApi } from '@tcswap/helpers/api'
 import axios from 'axios'
+import { getArkeoRpcUrl } from './arkeo-provider'
 
 const uSwap = axios.create({
   baseURL: process.env.NEXT_PUBLIC_USWAP_API_URL,
@@ -9,7 +10,9 @@ const uSwap = axios.create({
   }
 })
 
-const thornode = axios.create({ baseURL: 'https://thornode.ninerealms.com' })
+// Route THORNode RPC through Arkeo sentinel when configured
+const thornodeBaseUrl = getArkeoRpcUrl('thorchain') || 'https://thornode.ninerealms.com'
+const thornode = axios.create({ baseURL: thornodeBaseUrl })
 const coingecko = axios.create({ baseURL: 'https://api.coingecko.com/api/v3' })
 
 export const getAssetRates = async (ids: string) => {

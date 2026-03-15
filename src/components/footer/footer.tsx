@@ -1,8 +1,11 @@
 import { Icon } from '@/components/icons'
 import { AppConfig } from '@/config'
 import { Separator } from '../ui/separator'
+import { isArkeoEnabled } from '@/lib/arkeo-provider'
 
 export function Footer() {
+  const arkeoActive = isArkeoEnabled()
+
   return (
     <footer className="bg-tyler fixed inset-x-0 bottom-0 mx-auto hidden md:block">
       <div className="container mx-auto border-t p-4">
@@ -23,6 +26,19 @@ export function Footer() {
                 Unstoppable Wallet
               </a>
             </div>
+            {arkeoActive && (
+              <>
+                <Separator orientation="vertical" className="bg-andy h-full" />
+                <a
+                  className="flex items-center gap-1 underline text-emerald-400 hover:text-emerald-300 transition-colors"
+                  href="https://arkeomarketplace.com"
+                  rel="noopener noreferrer"
+                  target="_blank"
+                >
+                  ⚡ RPC powered by Arkeo
+                </a>
+              </>
+            )}
           </div>
           <a className="flex items-center gap-2 underline" href={AppConfig.discordLink} rel="noopener noreferrer" target="_blank">
             Get Support in Discord <Icon width={20} height={20} viewBox="0 0 20 20" name="discord" />
