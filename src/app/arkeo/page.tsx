@@ -129,7 +129,7 @@ export default function ArkeoStatusPage() {
             </p>
             <div className="flex flex-wrap gap-2">
               <a
-                href="https://arkeomarketplace.com"
+                href="https://rbechtold69.github.io/arkeo-data-engine-v2/"
                 className="rounded-full bg-emerald-400/20 px-4 py-2 text-xs font-semibold text-emerald-400 transition-colors hover:bg-emerald-400/30"
                 target="_blank"
                 rel="noopener noreferrer"
@@ -137,12 +137,12 @@ export default function ArkeoStatusPage() {
                 Browse Marketplace →
               </a>
               <a
-                href="https://docs.arkeo.network"
+                href="https://rbechtold69.github.io/arkeo-data-engine-v2/become-provider.html"
                 className="rounded-full bg-blade px-4 py-2 text-xs font-semibold text-leah transition-colors hover:opacity-80"
                 target="_blank"
                 rel="noopener noreferrer"
               >
-                Provider Docs →
+                Become a Provider →
               </a>
             </div>
           </div>

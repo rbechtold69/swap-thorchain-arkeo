@@ -31,7 +31,7 @@ export function Footer() {
                 <Separator orientation="vertical" className="bg-andy h-full" />
                 <a
                   className="flex items-center gap-1 underline text-emerald-400 hover:text-emerald-300 transition-colors"
-                  href="https://arkeomarketplace.com"
+                  href="https://rbechtold69.github.io/arkeo-data-engine-v2/"
                   rel="noopener noreferrer"
                   target="_blank"
                 >

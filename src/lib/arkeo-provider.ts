@@ -144,7 +144,7 @@ export function getArkeoProviderInfo() {
   return {
     enabled: isArkeoEnabled(),
     sentinelUrl: ARKEO_SENTINEL_URL,
-    marketplace: 'https://arkeomarketplace.com',
+    marketplace: 'https://rbechtold69.github.io/arkeo-data-engine-v2/',
     arkeoChains: arkeoCount,
     totalChains: totalCount,
     chains: statuses,
