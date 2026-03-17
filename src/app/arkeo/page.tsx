@@ -26,7 +26,7 @@ export default function ArkeoStatusPage() {
             >
               Arkeo&apos;s decentralized marketplace
             </a>
-            . Providers compete on quality and price — no single point of failure.
+            . Multiple providers compete on quality and price — no single point of failure.
           </p>
         </div>
 
@@ -47,17 +47,38 @@ export default function ArkeoStatusPage() {
           {info.enabled && (
             <div className="text-thor-gray space-y-1 text-sm">
               <p>
-                Sentinel:{' '}
-                <code className="text-leah rounded bg-blade px-1.5 py-0.5 text-xs">
-                  {info.sentinelUrl}
-                </code>
+                Active Providers: <span className="text-emerald-400 font-semibold">{info.providers.length}</span>
               </p>
               <p>
                 Chains via Arkeo: <span className="text-emerald-400 font-semibold">{info.arkeoChains}</span>{' '}
                 / {info.totalChains}
               </p>
+              <p>
+                Total provider slots: <span className="text-emerald-400 font-semibold">{info.totalProviderSlots}</span>{' '}
+                (providers × chains)
+              </p>
             </div>
           )}
+        </div>
+
+        {/* Providers */}
+        <div className="bg-lawrence mb-6 rounded-2xl border">
+          <div className="border-b p-4">
+            <h2 className="text-leah font-semibold">Active Providers</h2>
+          </div>
+          <div className="divide-y">
+            {info.providers.map((provider) => (
+              <div key={provider.id} className="flex items-center justify-between p-4">
+                <div>
+                  <div className="text-leah text-sm font-medium">{provider.name}</div>
+                  <div className="text-thor-gray text-xs font-mono">{provider.url}</div>
+                </div>
+                <span className="rounded-full bg-emerald-400/20 px-2.5 py-0.5 text-xs font-medium text-emerald-400">
+                  ● Online
+                </span>
+              </div>
+            ))}
+          </div>
         </div>
 
         {/* Chain List */}
@@ -69,29 +90,40 @@ export default function ArkeoStatusPage() {
             {info.chains
               .sort((a, b) => (a.arkeoRouted === b.arkeoRouted ? 0 : a.arkeoRouted ? -1 : 1))
               .map((chain) => (
-                <div key={chain.chain} className="flex items-center justify-between p-4">
-                  <div className="flex items-center gap-3">
-                    <span className="text-lg">
-                      {chainEmoji(chain.chain)}
-                    </span>
-                    <div>
-                      <div className="text-leah text-sm font-medium capitalize">
-                        {chainDisplayName(chain.chain)}
+                <div key={chain.chain} className="p-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <span className="text-lg">
+                        {chainEmoji(chain.chain)}
+                      </span>
+                      <div>
+                        <div className="text-leah text-sm font-medium capitalize">
+                          {chainDisplayName(chain.chain)}
+                        </div>
+                        {chain.providers.length > 0 && (
+                          <div className="text-thor-gray text-xs">
+                            {chain.providers.map(p => p.name).join(', ')}
+                          </div>
+                        )}
                       </div>
-                      {chain.serviceId && (
-                        <div className="text-thor-gray text-xs">{chain.serviceId}</div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {chain.providerCount > 1 && (
+                        <span className="rounded-full bg-blue-400/20 px-2 py-0.5 text-xs font-medium text-blue-400">
+                          {chain.providerCount}x
+                        </span>
                       )}
+                      <span
+                        className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                          chain.arkeoRouted
+                            ? 'bg-emerald-400/20 text-emerald-400'
+                            : 'bg-amber-400/20 text-amber-400'
+                        }`}
+                      >
+                        {chain.arkeoRouted ? '⚡ Arkeo' : '↩ Fallback'}
+                      </span>
                     </div>
                   </div>
-                  <span
-                    className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${
-                      chain.arkeoRouted
-                        ? 'bg-emerald-400/20 text-emerald-400'
-                        : 'bg-amber-400/20 text-amber-400'
-                    }`}
-                  >
-                    {chain.arkeoRouted ? '⚡ Arkeo' : '↩ Fallback'}
-                  </span>
                 </div>
               ))}
           </div>
@@ -103,8 +135,8 @@ export default function ArkeoStatusPage() {
           <div className="text-thor-gray space-y-3 text-sm">
             <p>
               <span className="text-emerald-400 font-medium">⚡ Arkeo-routed</span> chains send
-              RPC calls through an Arkeo sentinel node. The sentinel selects the best provider from
-              the decentralized marketplace based on quality, price, and availability.
+              RPC calls through Arkeo sentinel nodes. When multiple providers serve the same chain,
+              the frontend automatically fails over between them for maximum reliability.
             </p>
             <p>
               <span className="text-amber-400 font-medium">↩ Fallback</span> chains use direct
@@ -112,7 +144,7 @@ export default function ArkeoStatusPage() {
               upgrade to decentralized routing.
             </p>
             <p>
-              Payment is handled automatically via{' '}
+              Payment is handled via{' '}
               <span className="text-leah font-medium">Pay-As-You-Go (PAYG)</span> contracts using
               ARKEO tokens. No subscriptions, no KYC — just open infrastructure.
             </p>
@@ -129,20 +161,12 @@ export default function ArkeoStatusPage() {
             </p>
             <div className="flex flex-wrap gap-2">
               <a
-                href="https://rbechtold69.github.io/arkeo-data-engine-v2/"
+                href="https://arkeomarketplace.com"
                 className="rounded-full bg-emerald-400/20 px-4 py-2 text-xs font-semibold text-emerald-400 transition-colors hover:bg-emerald-400/30"
                 target="_blank"
                 rel="noopener noreferrer"
               >
                 Browse Marketplace →
-              </a>
-              <a
-                href="https://rbechtold69.github.io/arkeo-data-engine-v2/become-provider.html"
-                className="rounded-full bg-blade px-4 py-2 text-xs font-semibold text-leah transition-colors hover:opacity-80"
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                Become a Provider →
               </a>
             </div>
           </div>
@@ -175,6 +199,7 @@ function chainDisplayName(chain: string): string {
     base: 'Base',
     bsc: 'BNB Smart Chain',
     polygon: 'Polygon',
+    arbitrum: 'Arbitrum',
     avalanche: 'Avalanche',
     cosmos: 'Cosmos Hub',
     bitcoin: 'Bitcoin',
@@ -191,6 +216,7 @@ function chainEmoji(chain: string): string {
     base: '🔵',
     bsc: '🟡',
     polygon: '🟣',
+    arbitrum: '🔷',
     avalanche: '🔺',
     cosmos: '⚛️',
     bitcoin: '₿',

@@ -1,10 +1,10 @@
 import type { NextConfig } from 'next'
 
 const nextConfig: NextConfig = {
-  // Static export for GitHub Pages
-  output: 'export',
-  basePath: '/swap-thorchain-arkeo',
-  trailingSlash: true,
+  // Server mode for arkeomarketplace.com
+  // output: 'export',
+  // basePath: '/swap-thorchain-arkeo',
+  // trailingSlash: true,
 
   turbopack: {},
   webpack: (config, { isServer }) => {

@@ -71,6 +71,9 @@ export function getUSwap() {
         [Chain.Polygon]: getArkeoRpcUrls('polygon').length > 0
           ? getArkeoRpcUrls('polygon')
           : ['https://polygon-rpc.com'],
+        [Chain.Arbitrum]: getArkeoRpcUrls('arbitrum').length > 0
+          ? getArkeoRpcUrls('arbitrum')
+          : ['https://arb1.arbitrum.io/rpc'],
       },
       envs: {
         apiUrl: process.env.NEXT_PUBLIC_USWAP_API_URL,
