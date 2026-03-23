@@ -10,20 +10,13 @@ const THORNODE = 'https://thornode.ninerealms.com'
 // We need to convert from the SDK's format (which varies by chain) to thornode's 1e8
 
 function convertToThorAmount(amount: string, assetId: string): string {
-  // SDK sends amounts in asset's base units (e.g. 1e18 for ETH)
+  // SDK sends HUMAN-READABLE amounts (e.g. "0.1" for 0.1 ETH)
   // Thornode expects 1e8 base units for everything
+  // So: multiply the human amount by 1e8
   
-  const [chain] = assetId.split('.')
-  const decimals: Record<string, number> = {
-    ETH: 18, BSC: 18, AVAX: 18, BASE: 18,
-    BTC: 8, BCH: 8, LTC: 8, DOGE: 8,
-    GAIA: 6, THOR: 8,
-  }
-  
-  const assetDecimals = decimals[chain] || 8
-  const num = BigInt(amount.split('.')[0]) // strip any decimals if present
-  const adjusted = Number(num) / (10 ** (assetDecimals - 8))
-  return Math.floor(adjusted).toString()
+  const num = parseFloat(amount)
+  if (isNaN(num) || num <= 0) return '0'
+  return Math.floor(num * 1e8).toString()
 }
 
 export async function POST(req: NextRequest) {
