@@ -1,5 +1,4 @@
 import type { Metadata } from 'next'
-import { Manrope } from 'next/font/google'
 import Script from 'next/script'
 import { GoogleTagManager } from '@next/third-parties/google'
 import { ThemeProvider } from 'next-themes'
@@ -16,10 +15,6 @@ export const metadata: Metadata = {
   }
 }
 
-const manrope = Manrope({
-  subsets: ['latin'],
-  display: 'swap'
-})
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
@@ -32,7 +27,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
           }}
         />
       )}
-      <body className={`${manrope.className} bg-tyler antialiased`}>
+      <body className="bg-tyler antialiased font-sans">
         <ReactQueryProvider>
           <ThemeProvider defaultTheme="light" attribute="class">
             {children}
