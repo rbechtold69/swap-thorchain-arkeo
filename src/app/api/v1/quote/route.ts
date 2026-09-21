@@ -3,21 +3,7 @@
  * Replaces the gated api.thorchain.org/v1/quote endpoint
  */
 import { NextRequest, NextResponse } from 'next/server'
-
-const THORNODE = 'https://thornode.ninerealms.com'
-
-// Thornode amounts are in 1e8 base units
-// We need to convert from the SDK's format (which varies by chain) to thornode's 1e8
-
-function convertToThorAmount(amount: string, assetId: string): string {
-  // SDK sends HUMAN-READABLE amounts (e.g. "0.1" for 0.1 ETH)
-  // Thornode expects 1e8 base units for everything
-  // So: multiply the human amount by 1e8
-  
-  const num = parseFloat(amount)
-  if (isNaN(num) || num <= 0) return '0'
-  return Math.floor(num * 1e8).toString()
-}
+import { toThorBaseUnits, fromThorBaseUnits, fetchThorQuote, QuoteInputError, QuoteUnavailableError } from '@/lib/thornode-client'
 
 export async function POST(req: NextRequest) {
   try {
@@ -25,20 +11,25 @@ export async function POST(req: NextRequest) {
     
     const { sellAsset, buyAsset, sellAmount, slippage, providers, sourceAddress, destinationAddress } = body
 
+    if (typeof sellAsset !== 'string' || typeof buyAsset !== 'string' || !sellAsset || !buyAsset) {
+      throw new QuoteInputError('Sell and buy assets are required')
+    }
+    if (slippage !== undefined && (typeof slippage !== 'number' || !Number.isFinite(slippage) || slippage < 0 || slippage > 100)) {
+      throw new QuoteInputError('Slippage must be between 0 and 100')
+    }
     // Build thornode quote URL
     const params = new URLSearchParams({
       from_asset: sellAsset,
       to_asset: buyAsset,
-      amount: convertToThorAmount(sellAmount, sellAsset),
+      amount: toThorBaseUnits(sellAmount),
     })
 
     if (destinationAddress) params.append('destination', destinationAddress)
     if (sourceAddress) params.append('from_address', sourceAddress)
-    if (slippage) params.append('tolerance_bps', Math.round(slippage * 100).toString())
+    if (slippage !== undefined) params.append('tolerance_bps', Math.round(slippage * 100).toString())
     params.append('streaming_interval', '1')
 
-    const thornodeRes = await fetch(`${THORNODE}/thorchain/quote/swap?${params}`)
-    const data = await thornodeRes.json()
+    const data = await fetchThorQuote(params)
 
     if (data.error || data.code) {
       return NextResponse.json({
@@ -52,8 +43,8 @@ export async function POST(req: NextRequest) {
     }
 
     // Convert thornode response to SDK format
-    const expectedOut = (parseInt(data.expected_amount_out) / 1e8).toString()
-    const expectedOutMax = (parseInt(data.expected_amount_out_streaming || data.expected_amount_out) / 1e8).toString()
+    const expectedOut = fromThorBaseUnits(data.expected_amount_out)
+    const expectedOutMax = fromThorBaseUnits(data.expected_amount_out_streaming || data.expected_amount_out)
 
     const route = {
       buyAsset,
@@ -66,14 +57,14 @@ export async function POST(req: NextRequest) {
         {
           type: 'liquidity',
           asset: data.fees?.asset || buyAsset,
-          amount: (parseInt(data.fees?.liquidity || '0') / 1e8).toString(),
+          amount: fromThorBaseUnits(data.fees.liquidity),
           chain: buyAsset.split('.')[0],
           protocol: 'THORCHAIN',
         },
         {
           type: 'outbound',
           asset: data.fees?.asset || buyAsset,
-          amount: (parseInt(data.fees?.outbound || '0') / 1e8).toString(),
+          amount: fromThorBaseUnits(data.fees.outbound),
           chain: buyAsset.split('.')[0],
           protocol: 'THORCHAIN',
         },
@@ -97,7 +88,7 @@ export async function POST(req: NextRequest) {
     const routes = [route]
 
     if (data.streaming_swap_seconds && data.expected_amount_out_streaming) {
-      const streamingOut = (parseInt(data.expected_amount_out_streaming) / 1e8).toString()
+      const streamingOut = fromThorBaseUnits(data.expected_amount_out_streaming)
       routes.unshift({
         ...route,
         expectedBuyAmount: streamingOut,
@@ -118,11 +109,12 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ routes })
   } catch (err: any) {
-    console.error('Quote error:', err.message)
+    const status = err instanceof QuoteInputError || err instanceof SyntaxError ? 400 : 503
+    const message = err instanceof QuoteInputError || err instanceof QuoteUnavailableError ? err.message : 'Unable to obtain quote'
     return NextResponse.json({
       routes: [],
-      error: err.message,
-      providerErrors: [{ provider: 'THORCHAIN', message: err.message }]
-    }, { status: 500 })
+      error: message,
+      providerErrors: [{ provider: 'THORCHAIN', message }]
+    }, { status })
   }
 }

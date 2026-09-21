@@ -6,8 +6,17 @@ const nextConfig: NextConfig = {
   // basePath: '/swap-thorchain-arkeo',
   // trailingSlash: true,
 
-  turbopack: {},
+  turbopack: {
+    resolveAlias: {
+      // 0.7.16's ESM wrapper references a file missing from its package.
+      'libsodium-wrappers-sumo': './node_modules/libsodium-wrappers-sumo/dist/modules-sumo/libsodium-wrappers.js',
+    },
+  },
   webpack: (config, { isServer }) => {
+    config.resolve.alias = {
+      ...config.resolve.alias,
+      'libsodium-wrappers-sumo': require.resolve('libsodium-wrappers-sumo'),
+    }
     if (!isServer) {
       config.resolve.fallback = {
         ...config.resolve?.fallback,

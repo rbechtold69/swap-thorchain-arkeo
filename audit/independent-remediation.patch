@@ -1,0 +1,4704 @@
+diff --git a/README.md b/README.md
+index 9a18857..10314cb 100644
+--- a/README.md
++++ b/README.md
+@@ -13,3 +13,50 @@ bun dev
+ ```
+ 
+ Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
++
++
++## Audit candidate: API and payment safety (2026-09-21)
++
++This draft is not a production approval. Configure `THORNODE_URLS` and
++`MIDGARD_URLS` as comma-separated HTTPS bases (one to three each), preferably the
++approved Arkeo gateways. Defaults now follow current THORChain connecting docs:
++Liquify first, then thorchain.network. Different hostnames are not proof of
++independent operators. Set `<CHAIN>_RPC_URLS` (e.g. `ETH_RPC_URLS`) for native EVM
++balance reads. These read handlers have 2.5-second per-provider timeouts, reject
++redirects and cap decoded responses at 2 MiB. Server endpoint settings do not
++replace the separate browser wallet RPC configuration; verify both in staging.
++
++Unavailable balance, price, gas and tracking data returns an error rather than a
++fabricated zero or pending result. Unknown indexed transactions return `unknown`.
++The native balance endpoint does not implement ERC-20 token balances. Token
++metadata uses THORNode pool decimals; it no longer guesses decimals from tickers.
++Halted inbound chains are excluded from gas data. Wallet execution still needs
++fresh halt/vault checks through the SDK and an approved funded acceptance run.
++
++Quotes retain source/destination addresses required by the installed wallet SDK,
++use exact integer conversion, request `liquidity_tolerance_bps`, and show a real
++minimum output. Omitted slippage defaults to 3%; 100% tolerance is rejected. One
++upstream streaming quote produces one route/memo. The confirmation UI rejects
++expired quotes. A passing SDK schema test is not proof of correct live execution
++on every source chain, or of memo/vault authenticity from an untrusted provider.
++
++Maya quote support is not implemented by this local API and is now explicitly
++advertised as disabled. The incomplete memoless assets endpoint returns 501;
++available pools alone do not prove memoless registration support. Neither change
++restricts the generic Arkeo gateway's ability to serve properly provisioned Maya
++REST/RPC/indexer services. `/swap` still returns 501 because the THORChain wallet
++plugin constructs and submits transactions from the quote itself; that SDK path
++must be tested before rollout.
++
++Dependency remediation removed unused `@confio/ics23`, pins protobufjs 7 consumers
++to patched 7.6.6, and overrides the unused npm 9 dependency of Cardano crypto with
++npm 11.19.1, eliminating its bundled vulnerable tar 6. The inspected Cardano
++runtime does not import npm. Local tests, type checking and build pass; hardware
++wallet/Cardano compatibility still needs real integrations. The latest scan
++reports 0 critical, 31 high, 42 moderate and 28 low advisories (101 total). Counts
++are dependency alerts, not demonstrated exploitable paths. Do not describe the
++application as free of vulnerabilities. Node engine warnings remain in some
++wallet packages; agree and test the production runtime with maintainers.
++
++References: https://dev.thorchain.org/concepts/connecting-to-thorchain.html and
++https://dev.thorchain.org/swap-guide/quickstart-guide.html.
+diff --git a/package-lock.json b/package-lock.json
+index 8a321a6..8e56cd6 100644
+--- a/package-lock.json
++++ b/package-lock.json
+@@ -9,7 +9,6 @@
+       "version": "0.1.0",
+       "dependencies": {
+         "@bitgo/utxo-lib": "^1.9.5",
+-        "@confio/ics23": "^0.6.8",
+         "@cosmjs/amino": "^0.36.2",
+         "@cosmjs/crypto": "^0.36.2",
+         "@cosmjs/proto-signing": "^0.36.2",
+@@ -1314,17 +1313,6 @@
+         "node": ">=6"
+       }
+     },
+-    "node_modules/@confio/ics23": {
+-      "version": "0.6.8",
+-      "resolved": "https://registry.npmjs.org/@confio/ics23/-/ics23-0.6.8.tgz",
+-      "integrity": "sha512-wB6uo+3A50m0sW/EWcU64xpV/8wShZ6bMTa7pF8eYsTrSkQA7oLUIJcs/wb8g4y2Oyq701BaGiO6n/ak5WXO1w==",
+-      "deprecated": "Unmaintained. The codebase for this package was moved to https://github.com/cosmos/ics23 but then the JS implementation was removed in https://github.com/cosmos/ics23/pull/353. Please consult the maintainers of https://github.com/cosmos for further assistance.",
+-      "license": "Apache-2.0",
+-      "dependencies": {
+-        "@noble/hashes": "^1.0.0",
+-        "protobufjs": "^6.8.8"
+-      }
+-    },
+     "node_modules/@connectrpc/connect": {
+       "version": "1.4.0",
+       "resolved": "https://registry.npmjs.org/@connectrpc/connect/-/connect-1.4.0.tgz",
+@@ -6431,9 +6419,9 @@
+       "license": "BSD-3-Clause"
+     },
+     "node_modules/@protobufjs/eventemitter": {
+-      "version": "1.1.0",
+-      "resolved": "https://registry.npmjs.org/@protobufjs/eventemitter/-/eventemitter-1.1.0.tgz",
+-      "integrity": "sha512-j9ednRT81vYJ9OfVuXG6ERSTdEL1xVsNgqpkxMsbIabzSo3goCjDIveeGv5d03om39ML71RdmrGNjG5SReBP/Q==",
++      "version": "1.1.1",
++      "resolved": "https://registry.npmjs.org/@protobufjs/eventemitter/-/eventemitter-1.1.1.tgz",
++      "integrity": "sha512-vW1GmwMZNnL+gMRaovlh9yZX74kc+TTU3FObkkurpMaRtBfLP3ldjS9KQWlwZgraRE0+dheEEoAxdzcJQ8eXZg==",
+       "license": "BSD-3-Clause"
+     },
+     "node_modules/@protobufjs/fetch": {
+@@ -6451,12 +6439,6 @@
+       "integrity": "sha512-Ddb+kVXlXst9d+R9PfTIxh1EdNkgoRe5tOX6t01f1lYWOvJnSPDBlG241QLzcyPdoNTsblLUdujGSE4RzrTZGQ==",
+       "license": "BSD-3-Clause"
+     },
+-    "node_modules/@protobufjs/inquire": {
+-      "version": "1.1.2",
+-      "resolved": "https://registry.npmjs.org/@protobufjs/inquire/-/inquire-1.1.2.tgz",
+-      "integrity": "sha512-pa0vFRuws4wkvaXKK1uXZMAwAX4/t8ANaJo45iw/oQHNQ9q5xUzwgFmVJGXiga2BeN+zpX7Vf9vmsiIa2J+MUw==",
+-      "license": "BSD-3-Clause"
+-    },
+     "node_modules/@protobufjs/path": {
+       "version": "1.1.2",
+       "resolved": "https://registry.npmjs.org/@protobufjs/path/-/path-1.1.2.tgz",
+@@ -11167,24 +11149,23 @@
+       "license": "Apache-2.0"
+     },
+     "node_modules/@tcswap/toolboxes/node_modules/protobufjs": {
+-      "version": "7.5.9",
+-      "resolved": "https://registry.npmjs.org/protobufjs/-/protobufjs-7.5.9.tgz",
+-      "integrity": "sha512-Od4muIm3HW1AouyHF5lONOf1FWo3hY1NbFDoy191X9GzhpgW1clCoaFjfVs2rKJNFYpTNJbje4cbAIDBZJ63ZA==",
++      "version": "7.6.6",
++      "resolved": "https://registry.npmjs.org/protobufjs/-/protobufjs-7.6.6.tgz",
++      "integrity": "sha512-dYDWdjSl5RNb7SgPxGQcRU+GtvP7s2fpkrY0r432PcOIaZ0/rBcxEZnQN67iJhFuQiVw754JDoPruPCNdGsbjg==",
+       "hasInstallScript": true,
+       "license": "BSD-3-Clause",
+       "dependencies": {
+         "@protobufjs/aspromise": "^1.1.2",
+         "@protobufjs/base64": "^1.1.2",
+         "@protobufjs/codegen": "^2.0.5",
+-        "@protobufjs/eventemitter": "^1.1.0",
++        "@protobufjs/eventemitter": "^1.1.1",
+         "@protobufjs/fetch": "^1.1.1",
+         "@protobufjs/float": "^1.0.2",
+-        "@protobufjs/inquire": "^1.1.2",
+         "@protobufjs/path": "^1.1.2",
+         "@protobufjs/pool": "^1.1.0",
+         "@protobufjs/utf8": "^1.1.1",
+         "@types/node": ">=13.7.0",
+-        "long": "^5.0.0"
++        "long": "^5.3.2"
+       },
+       "engines": {
+         "node": ">=12.0.0"
+@@ -12248,29 +12229,34 @@
+       "license": "Apache-2.0"
+     },
+     "node_modules/@trezor/protobuf/node_modules/protobufjs": {
+-      "version": "7.4.0",
+-      "resolved": "https://registry.npmjs.org/protobufjs/-/protobufjs-7.4.0.tgz",
+-      "integrity": "sha512-mRUWCc3KUU4w1jU8sGxICXH/gNS94DvI1gxqDvBzhj1JpcsimQkYiOJfwsPUykUI5ZaspFbSgmBLER8IrQ3tqw==",
++      "version": "7.6.6",
++      "resolved": "https://registry.npmjs.org/protobufjs/-/protobufjs-7.6.6.tgz",
++      "integrity": "sha512-dYDWdjSl5RNb7SgPxGQcRU+GtvP7s2fpkrY0r432PcOIaZ0/rBcxEZnQN67iJhFuQiVw754JDoPruPCNdGsbjg==",
+       "hasInstallScript": true,
+       "license": "BSD-3-Clause",
+       "dependencies": {
+         "@protobufjs/aspromise": "^1.1.2",
+         "@protobufjs/base64": "^1.1.2",
+-        "@protobufjs/codegen": "^2.0.4",
+-        "@protobufjs/eventemitter": "^1.1.0",
+-        "@protobufjs/fetch": "^1.1.0",
++        "@protobufjs/codegen": "^2.0.5",
++        "@protobufjs/eventemitter": "^1.1.1",
++        "@protobufjs/fetch": "^1.1.1",
+         "@protobufjs/float": "^1.0.2",
+-        "@protobufjs/inquire": "^1.1.0",
+         "@protobufjs/path": "^1.1.2",
+         "@protobufjs/pool": "^1.1.0",
+-        "@protobufjs/utf8": "^1.1.0",
++        "@protobufjs/utf8": "^1.1.1",
+         "@types/node": ">=13.7.0",
+-        "long": "^5.0.0"
++        "long": "^5.3.2"
+       },
+       "engines": {
+         "node": ">=12.0.0"
+       }
+     },
++    "node_modules/@trezor/protobuf/node_modules/protobufjs/node_modules/long": {
++      "version": "5.3.2",
++      "resolved": "https://registry.npmjs.org/long/-/long-5.3.2.tgz",
++      "integrity": "sha512-mNAgZ1GmyNhD7AuqnTG3/VQ26o760+ZYBPKjPvugO8+nLbYfX6TVpJPseBvopbdY+qpZ/lKUnmEc1LeZYS3QAA==",
++      "license": "Apache-2.0"
++    },
+     "node_modules/@trezor/protocol": {
+       "version": "1.2.10",
+       "resolved": "https://registry.npmjs.org/@trezor/protocol/-/protocol-1.2.10.tgz",
+@@ -12627,12 +12613,6 @@
+       "dev": true,
+       "license": "MIT"
+     },
+-    "node_modules/@types/long": {
+-      "version": "4.0.2",
+-      "resolved": "https://registry.npmjs.org/@types/long/-/long-4.0.2.tgz",
+-      "integrity": "sha512-MqTGEo5bj5t157U6fA/BiDynNkn0YknVdh48CMPkTSpFTVmvao5UQmm7uEF6xBEo7qIMAlY/JSleYaE6VOdpaA==",
+-      "license": "MIT"
+-    },
+     "node_modules/@types/node": {
+       "version": "24.12.0",
+       "resolved": "https://registry.npmjs.org/@types/node/-/node-24.12.0.tgz",
+@@ -19572,9 +19552,7 @@
+       "version": "2.3.1",
+       "resolved": "https://registry.npmjs.org/json-parse-even-better-errors/-/json-parse-even-better-errors-2.3.1.tgz",
+       "integrity": "sha512-xyFwyhro/JEof6Ghe2iz2NcXoj2sloNsWr/XsERDK/oiPCfaNhl5ONfp+jQdAZRQQ0IJWNzH9zIZF7li91kh2w==",
+-      "dev": true,
+-      "license": "MIT",
+-      "peer": true
++      "license": "MIT"
+     },
+     "node_modules/json-schema": {
+       "version": "0.4.0",
+@@ -21819,26 +21797,26 @@
+       }
+     },
+     "node_modules/npm": {
+-      "version": "9.9.4",
+-      "resolved": "https://registry.npmjs.org/npm/-/npm-9.9.4.tgz",
+-      "integrity": "sha512-NzcQiLpqDuLhavdyJ2J3tGJ/ni/ebcqHVFZkv1C4/6lblraUPbPgCJ4Vhb4oa3FFhRa2Yj9gA58jGH/ztKueNQ==",
++      "version": "11.19.1",
++      "resolved": "https://registry.npmjs.org/npm/-/npm-11.19.1.tgz",
++      "integrity": "sha512-ztsxKxt/kkIaAs+2i0GU6I+DRmUdrNasxTZKJe9TCdSjKxlhah/4r/hl5ygMD6XAg1qZ9c2TNomR4qgOydp10g==",
+       "bundleDependencies": [
+         "@isaacs/string-locale-compare",
+         "@npmcli/arborist",
+         "@npmcli/config",
+         "@npmcli/fs",
+         "@npmcli/map-workspaces",
++        "@npmcli/metavuln-calculator",
+         "@npmcli/package-json",
+         "@npmcli/promise-spawn",
++        "@npmcli/redact",
+         "@npmcli/run-script",
++        "@sigstore/tuf",
+         "abbrev",
+         "archy",
+         "cacache",
+         "chalk",
+         "ci-info",
+-        "cli-columns",
+-        "cli-table3",
+-        "columnify",
+         "fastest-levenshtein",
+         "fs-minipass",
+         "glob",
+@@ -21852,7 +21830,6 @@
+         "libnpmdiff",
+         "libnpmexec",
+         "libnpmfund",
+-        "libnpmhook",
+         "libnpmorg",
+         "libnpmpack",
+         "libnpmpublish",
+@@ -21866,7 +21843,6 @@
+         "ms",
+         "node-gyp",
+         "nopt",
+-        "normalize-package-data",
+         "npm-audit-report",
+         "npm-install-checks",
+         "npm-package-arg",
+@@ -21874,7 +21850,6 @@
+         "npm-profile",
+         "npm-registry-fetch",
+         "npm-user-validate",
+-        "npmlog",
+         "p-map",
+         "pacote",
+         "parse-conflict-json",
+@@ -21882,7 +21857,6 @@
+         "qrcode-terminal",
+         "read",
+         "semver",
+-        "sigstore",
+         "spdx-expression-parse",
+         "ssri",
+         "supports-color",
+@@ -21891,8 +21865,7 @@
+         "tiny-relative-date",
+         "treeverse",
+         "validate-npm-package-name",
+-        "which",
+-        "write-file-atomic"
++        "which"
+       ],
+       "license": "Artistic-2.0",
+       "workspaces": [
+@@ -21904,541 +21877,440 @@
+       ],
+       "dependencies": {
+         "@isaacs/string-locale-compare": "^1.1.0",
+-        "@npmcli/arborist": "^6.5.0",
+-        "@npmcli/config": "^6.4.0",
+-        "@npmcli/fs": "^3.1.0",
+-        "@npmcli/map-workspaces": "^3.0.4",
+-        "@npmcli/package-json": "^4.0.1",
+-        "@npmcli/promise-spawn": "^6.0.2",
+-        "@npmcli/run-script": "^6.0.2",
+-        "abbrev": "^2.0.0",
++        "@npmcli/arborist": "^9.9.1",
++        "@npmcli/config": "^10.12.0",
++        "@npmcli/fs": "^5.0.0",
++        "@npmcli/map-workspaces": "^5.0.3",
++        "@npmcli/metavuln-calculator": "^9.0.3",
++        "@npmcli/package-json": "^7.0.5",
++        "@npmcli/promise-spawn": "^9.0.1",
++        "@npmcli/redact": "^4.0.0",
++        "@npmcli/run-script": "^10.0.4",
++        "@sigstore/tuf": "^4.0.2",
++        "abbrev": "^4.0.0",
+         "archy": "~1.0.0",
+-        "cacache": "^17.1.4",
+-        "chalk": "^5.3.0",
+-        "ci-info": "^4.0.0",
+-        "cli-columns": "^4.0.0",
+-        "cli-table3": "^0.6.3",
+-        "columnify": "^1.6.0",
++        "cacache": "^20.0.4",
++        "chalk": "^5.6.2",
++        "ci-info": "^4.4.0",
+         "fastest-levenshtein": "^1.0.16",
+         "fs-minipass": "^3.0.3",
+-        "glob": "^10.3.10",
++        "glob": "^13.0.6",
+         "graceful-fs": "^4.2.11",
+-        "hosted-git-info": "^6.1.3",
+-        "ini": "^4.1.1",
+-        "init-package-json": "^5.0.0",
+-        "is-cidr": "^4.0.2",
+-        "json-parse-even-better-errors": "^3.0.1",
+-        "libnpmaccess": "^7.0.2",
+-        "libnpmdiff": "^5.0.20",
+-        "libnpmexec": "^6.0.4",
+-        "libnpmfund": "^4.2.1",
+-        "libnpmhook": "^9.0.3",
+-        "libnpmorg": "^5.0.4",
+-        "libnpmpack": "^5.0.20",
+-        "libnpmpublish": "^7.5.1",
+-        "libnpmsearch": "^6.0.2",
+-        "libnpmteam": "^5.0.3",
+-        "libnpmversion": "^4.0.2",
+-        "make-fetch-happen": "^11.1.1",
+-        "minimatch": "^9.0.3",
+-        "minipass": "^7.0.4",
++        "hosted-git-info": "^9.0.3",
++        "ini": "^6.0.0",
++        "init-package-json": "^8.2.5",
++        "is-cidr": "^6.0.4",
++        "json-parse-even-better-errors": "^5.0.0",
++        "libnpmaccess": "^10.0.3",
++        "libnpmdiff": "^8.1.12",
++        "libnpmexec": "^10.3.2",
++        "libnpmfund": "^7.0.26",
++        "libnpmorg": "^8.0.1",
++        "libnpmpack": "^9.1.13",
++        "libnpmpublish": "^11.2.0",
++        "libnpmsearch": "^9.0.1",
++        "libnpmteam": "^8.0.2",
++        "libnpmversion": "^8.0.4",
++        "make-fetch-happen": "^15.0.6",
++        "minimatch": "^10.2.5",
++        "minipass": "^7.1.3",
+         "minipass-pipeline": "^1.2.4",
+         "ms": "^2.1.2",
+-        "node-gyp": "^9.4.1",
+-        "nopt": "^7.2.0",
+-        "normalize-package-data": "^5.0.0",
+-        "npm-audit-report": "^5.0.0",
+-        "npm-install-checks": "^6.3.0",
+-        "npm-package-arg": "^10.1.0",
+-        "npm-pick-manifest": "^8.0.2",
+-        "npm-profile": "^7.0.1",
+-        "npm-registry-fetch": "^14.0.5",
+-        "npm-user-validate": "^2.0.0",
+-        "npmlog": "^7.0.1",
+-        "p-map": "^4.0.0",
+-        "pacote": "^15.2.0",
+-        "parse-conflict-json": "^3.0.1",
+-        "proc-log": "^3.0.0",
++        "node-gyp": "^12.4.0",
++        "nopt": "^9.0.0",
++        "npm-audit-report": "^7.0.0",
++        "npm-install-checks": "^8.0.0",
++        "npm-package-arg": "^13.0.2",
++        "npm-pick-manifest": "^11.0.3",
++        "npm-profile": "^12.0.2",
++        "npm-registry-fetch": "^19.1.1",
++        "npm-user-validate": "^4.0.0",
++        "p-map": "^7.0.4",
++        "pacote": "^21.5.1",
++        "parse-conflict-json": "^5.0.1",
++        "proc-log": "^6.1.0",
+         "qrcode-terminal": "^0.12.0",
+-        "read": "^2.1.0",
+-        "semver": "^7.6.0",
+-        "sigstore": "^1.9.0",
+-        "spdx-expression-parse": "^3.0.1",
+-        "ssri": "^10.0.5",
+-        "supports-color": "^9.4.0",
+-        "tar": "^6.2.1",
++        "read": "^5.0.1",
++        "semver": "^7.8.5",
++        "spdx-expression-parse": "^4.0.0",
++        "ssri": "^13.0.1",
++        "supports-color": "^10.2.2",
++        "tar": "^7.5.22",
+         "text-table": "~0.2.0",
+-        "tiny-relative-date": "^1.3.0",
++        "tiny-relative-date": "^2.0.2",
+         "treeverse": "^3.0.0",
+-        "validate-npm-package-name": "^5.0.0",
+-        "which": "^3.0.1",
+-        "write-file-atomic": "^5.0.1"
++        "validate-npm-package-name": "^7.0.2",
++        "which": "^6.0.1"
+       },
+       "bin": {
+         "npm": "bin/npm-cli.js",
+         "npx": "bin/npx-cli.js"
+       },
+       "engines": {
+-        "node": "^14.17.0 || ^16.13.0 || >=18.0.0"
++        "node": "^20.17.0 || >=22.9.0"
+       }
+     },
+-    "node_modules/npm/node_modules/@colors/colors": {
+-      "version": "1.5.0",
++    "node_modules/npm/node_modules/@gar/promise-retry": {
++      "version": "1.0.3",
+       "inBundle": true,
+       "license": "MIT",
+-      "optional": true,
+       "engines": {
+-        "node": ">=0.1.90"
++        "node": "^20.17.0 || >=22.9.0"
+       }
+     },
+-    "node_modules/npm/node_modules/@gar/promisify": {
+-      "version": "1.1.3",
+-      "inBundle": true,
+-      "license": "MIT"
+-    },
+-    "node_modules/npm/node_modules/@isaacs/cliui": {
+-      "version": "8.0.2",
++    "node_modules/npm/node_modules/@isaacs/fs-minipass": {
++      "version": "4.0.1",
+       "inBundle": true,
+       "license": "ISC",
+       "dependencies": {
+-        "string-width": "^5.1.2",
+-        "string-width-cjs": "npm:string-width@^4.2.0",
+-        "strip-ansi": "^7.0.1",
+-        "strip-ansi-cjs": "npm:strip-ansi@^6.0.1",
+-        "wrap-ansi": "^8.1.0",
+-        "wrap-ansi-cjs": "npm:wrap-ansi@^7.0.0"
++        "minipass": "^7.0.4"
+       },
+       "engines": {
+-        "node": ">=12"
+-      }
+-    },
+-    "node_modules/npm/node_modules/@isaacs/cliui/node_modules/ansi-regex": {
+-      "version": "6.0.1",
+-      "inBundle": true,
+-      "license": "MIT",
+-      "engines": {
+-        "node": ">=12"
+-      },
+-      "funding": {
+-        "url": "https://github.com/chalk/ansi-regex?sponsor=1"
++        "node": ">=18.0.0"
+       }
+     },
+-    "node_modules/npm/node_modules/@isaacs/cliui/node_modules/emoji-regex": {
+-      "version": "9.2.2",
+-      "inBundle": true,
+-      "license": "MIT"
+-    },
+-    "node_modules/npm/node_modules/@isaacs/cliui/node_modules/string-width": {
+-      "version": "5.1.2",
++    "node_modules/npm/node_modules/@isaacs/string-locale-compare": {
++      "version": "1.1.0",
+       "inBundle": true,
+-      "license": "MIT",
+-      "dependencies": {
+-        "eastasianwidth": "^0.2.0",
+-        "emoji-regex": "^9.2.2",
+-        "strip-ansi": "^7.0.1"
+-      },
+-      "engines": {
+-        "node": ">=12"
+-      },
+-      "funding": {
+-        "url": "https://github.com/sponsors/sindresorhus"
+-      }
++      "license": "ISC"
+     },
+-    "node_modules/npm/node_modules/@isaacs/cliui/node_modules/strip-ansi": {
+-      "version": "7.1.0",
++    "node_modules/npm/node_modules/@npmcli/agent": {
++      "version": "4.0.2",
+       "inBundle": true,
+-      "license": "MIT",
++      "license": "ISC",
+       "dependencies": {
+-        "ansi-regex": "^6.0.1"
++        "agent-base": "^7.1.0",
++        "http-proxy-agent": "^7.0.0",
++        "https-proxy-agent": "^7.0.1",
++        "lru-cache": "^11.2.1",
++        "socks-proxy-agent": "^8.0.3"
+       },
+       "engines": {
+-        "node": ">=12"
+-      },
+-      "funding": {
+-        "url": "https://github.com/chalk/strip-ansi?sponsor=1"
++        "node": "^20.17.0 || >=22.9.0"
+       }
+     },
+-    "node_modules/npm/node_modules/@isaacs/string-locale-compare": {
+-      "version": "1.1.0",
+-      "inBundle": true,
+-      "license": "ISC"
+-    },
+     "node_modules/npm/node_modules/@npmcli/arborist": {
+-      "version": "6.5.1",
++      "version": "9.9.1",
+       "inBundle": true,
+       "license": "ISC",
+       "dependencies": {
++        "@gar/promise-retry": "^1.0.0",
+         "@isaacs/string-locale-compare": "^1.1.0",
+-        "@npmcli/fs": "^3.1.0",
+-        "@npmcli/installed-package-contents": "^2.0.2",
+-        "@npmcli/map-workspaces": "^3.0.2",
+-        "@npmcli/metavuln-calculator": "^5.0.0",
+-        "@npmcli/name-from-folder": "^2.0.0",
+-        "@npmcli/node-gyp": "^3.0.0",
+-        "@npmcli/package-json": "^4.0.0",
+-        "@npmcli/query": "^3.1.0",
+-        "@npmcli/run-script": "^6.0.0",
+-        "bin-links": "^4.0.1",
+-        "cacache": "^17.0.4",
+-        "common-ancestor-path": "^1.0.1",
+-        "hosted-git-info": "^6.1.1",
+-        "json-parse-even-better-errors": "^3.0.0",
++        "@npmcli/fs": "^5.0.0",
++        "@npmcli/installed-package-contents": "^4.0.0",
++        "@npmcli/map-workspaces": "^5.0.0",
++        "@npmcli/metavuln-calculator": "^9.0.2",
++        "@npmcli/name-from-folder": "^4.0.0",
++        "@npmcli/node-gyp": "^5.0.0",
++        "@npmcli/package-json": "^7.0.0",
++        "@npmcli/query": "^5.0.0",
++        "@npmcli/redact": "^4.0.0",
++        "@npmcli/run-script": "^10.0.0",
++        "bin-links": "^6.0.0",
++        "cacache": "^20.0.1",
++        "common-ancestor-path": "^2.0.0",
++        "hosted-git-info": "^9.0.0",
+         "json-stringify-nice": "^1.1.4",
+-        "minimatch": "^9.0.0",
+-        "nopt": "^7.0.0",
+-        "npm-install-checks": "^6.2.0",
+-        "npm-package-arg": "^10.1.0",
+-        "npm-pick-manifest": "^8.0.1",
+-        "npm-registry-fetch": "^14.0.3",
+-        "npmlog": "^7.0.1",
+-        "pacote": "^15.0.8",
+-        "parse-conflict-json": "^3.0.0",
+-        "proc-log": "^3.0.0",
++        "lru-cache": "^11.2.1",
++        "minimatch": "^10.0.3",
++        "nopt": "^9.0.0",
++        "npm-install-checks": "^8.0.0",
++        "npm-package-arg": "^13.0.0",
++        "npm-pick-manifest": "^11.0.1",
++        "npm-registry-fetch": "^19.0.0",
++        "pacote": "^21.0.2",
++        "parse-conflict-json": "^5.0.1",
++        "proc-log": "^6.0.0",
++        "proggy": "^4.0.0",
+         "promise-all-reject-late": "^1.0.0",
+-        "promise-call-limit": "^1.0.2",
+-        "read-package-json-fast": "^3.0.2",
++        "promise-call-limit": "^3.0.1",
+         "semver": "^7.3.7",
+-        "ssri": "^10.0.1",
++        "ssri": "^13.0.0",
+         "treeverse": "^3.0.0",
+-        "walk-up-path": "^3.0.1"
++        "walk-up-path": "^4.0.0"
+       },
+       "bin": {
+         "arborist": "bin/index.js"
+       },
+       "engines": {
+-        "node": "^14.17.0 || ^16.13.0 || >=18.0.0"
++        "node": "^20.17.0 || >=22.9.0"
+       }
+     },
+     "node_modules/npm/node_modules/@npmcli/config": {
+-      "version": "6.4.1",
++      "version": "10.12.0",
+       "inBundle": true,
+       "license": "ISC",
+       "dependencies": {
+-        "@npmcli/map-workspaces": "^3.0.2",
++        "@npmcli/map-workspaces": "^5.0.0",
++        "@npmcli/package-json": "^7.0.0",
+         "ci-info": "^4.0.0",
+-        "ini": "^4.1.0",
+-        "nopt": "^7.0.0",
+-        "proc-log": "^3.0.0",
+-        "read-package-json-fast": "^3.0.2",
++        "ini": "^6.0.0",
++        "nopt": "^9.0.0",
++        "proc-log": "^6.0.0",
+         "semver": "^7.3.5",
+-        "walk-up-path": "^3.0.1"
+-      },
+-      "engines": {
+-        "node": "^14.17.0 || ^16.13.0 || >=18.0.0"
+-      }
+-    },
+-    "node_modules/npm/node_modules/@npmcli/disparity-colors": {
+-      "version": "3.0.0",
+-      "inBundle": true,
+-      "license": "ISC",
+-      "dependencies": {
+-        "ansi-styles": "^4.3.0"
++        "walk-up-path": "^4.0.0"
+       },
+       "engines": {
+-        "node": "^14.17.0 || ^16.13.0 || >=18.0.0"
++        "node": "^20.17.0 || >=22.9.0"
+       }
+     },
+     "node_modules/npm/node_modules/@npmcli/fs": {
+-      "version": "3.1.0",
++      "version": "5.0.0",
+       "inBundle": true,
+       "license": "ISC",
+       "dependencies": {
+         "semver": "^7.3.5"
+       },
+       "engines": {
+-        "node": "^14.17.0 || ^16.13.0 || >=18.0.0"
++        "node": "^20.17.0 || >=22.9.0"
+       }
+     },
+     "node_modules/npm/node_modules/@npmcli/git": {
+-      "version": "4.1.0",
++      "version": "7.0.2",
+       "inBundle": true,
+       "license": "ISC",
+       "dependencies": {
+-        "@npmcli/promise-spawn": "^6.0.0",
+-        "lru-cache": "^7.4.4",
+-        "npm-pick-manifest": "^8.0.0",
+-        "proc-log": "^3.0.0",
+-        "promise-inflight": "^1.0.1",
+-        "promise-retry": "^2.0.1",
++        "@gar/promise-retry": "^1.0.0",
++        "@npmcli/promise-spawn": "^9.0.0",
++        "ini": "^6.0.0",
++        "lru-cache": "^11.2.1",
++        "npm-pick-manifest": "^11.0.1",
++        "proc-log": "^6.0.0",
+         "semver": "^7.3.5",
+-        "which": "^3.0.0"
++        "which": "^6.0.0"
+       },
+       "engines": {
+-        "node": "^14.17.0 || ^16.13.0 || >=18.0.0"
++        "node": "^20.17.0 || >=22.9.0"
+       }
+     },
+     "node_modules/npm/node_modules/@npmcli/installed-package-contents": {
+-      "version": "2.0.2",
++      "version": "4.0.0",
+       "inBundle": true,
+       "license": "ISC",
+       "dependencies": {
+-        "npm-bundled": "^3.0.0",
+-        "npm-normalize-package-bin": "^3.0.0"
++        "npm-bundled": "^5.0.0",
++        "npm-normalize-package-bin": "^5.0.0"
+       },
+       "bin": {
+-        "installed-package-contents": "lib/index.js"
++        "installed-package-contents": "bin/index.js"
+       },
+       "engines": {
+-        "node": "^14.17.0 || ^16.13.0 || >=18.0.0"
++        "node": "^20.17.0 || >=22.9.0"
+       }
+     },
+     "node_modules/npm/node_modules/@npmcli/map-workspaces": {
+-      "version": "3.0.4",
++      "version": "5.0.3",
+       "inBundle": true,
+       "license": "ISC",
+       "dependencies": {
+-        "@npmcli/name-from-folder": "^2.0.0",
+-        "glob": "^10.2.2",
+-        "minimatch": "^9.0.0",
+-        "read-package-json-fast": "^3.0.0"
++        "@npmcli/name-from-folder": "^4.0.0",
++        "@npmcli/package-json": "^7.0.0",
++        "glob": "^13.0.0",
++        "minimatch": "^10.0.3"
+       },
+       "engines": {
+-        "node": "^14.17.0 || ^16.13.0 || >=18.0.0"
++        "node": "^20.17.0 || >=22.9.0"
+       }
+     },
+     "node_modules/npm/node_modules/@npmcli/metavuln-calculator": {
+-      "version": "5.0.1",
++      "version": "9.0.3",
+       "inBundle": true,
+       "license": "ISC",
+       "dependencies": {
+-        "cacache": "^17.0.0",
+-        "json-parse-even-better-errors": "^3.0.0",
+-        "pacote": "^15.0.0",
++        "cacache": "^20.0.0",
++        "json-parse-even-better-errors": "^5.0.0",
++        "pacote": "^21.0.0",
++        "proc-log": "^6.0.0",
+         "semver": "^7.3.5"
+       },
+       "engines": {
+-        "node": "^14.17.0 || ^16.13.0 || >=18.0.0"
+-      }
+-    },
+-    "node_modules/npm/node_modules/@npmcli/move-file": {
+-      "version": "2.0.1",
+-      "inBundle": true,
+-      "license": "MIT",
+-      "dependencies": {
+-        "mkdirp": "^1.0.4",
+-        "rimraf": "^3.0.2"
+-      },
+-      "engines": {
+-        "node": "^12.13.0 || ^14.15.0 || >=16.0.0"
++        "node": "^20.17.0 || >=22.9.0"
+       }
+     },
+     "node_modules/npm/node_modules/@npmcli/name-from-folder": {
+-      "version": "2.0.0",
++      "version": "4.0.0",
+       "inBundle": true,
+       "license": "ISC",
+       "engines": {
+-        "node": "^14.17.0 || ^16.13.0 || >=18.0.0"
++        "node": "^20.17.0 || >=22.9.0"
+       }
+     },
+     "node_modules/npm/node_modules/@npmcli/node-gyp": {
+-      "version": "3.0.0",
++      "version": "5.0.0",
+       "inBundle": true,
+       "license": "ISC",
+       "engines": {
+-        "node": "^14.17.0 || ^16.13.0 || >=18.0.0"
++        "node": "^20.17.0 || >=22.9.0"
+       }
+     },
+     "node_modules/npm/node_modules/@npmcli/package-json": {
+-      "version": "4.0.1",
++      "version": "7.0.5",
+       "inBundle": true,
+       "license": "ISC",
+       "dependencies": {
+-        "@npmcli/git": "^4.1.0",
+-        "glob": "^10.2.2",
+-        "hosted-git-info": "^6.1.1",
+-        "json-parse-even-better-errors": "^3.0.0",
+-        "normalize-package-data": "^5.0.0",
+-        "proc-log": "^3.0.0",
+-        "semver": "^7.5.3"
++        "@npmcli/git": "^7.0.0",
++        "glob": "^13.0.0",
++        "hosted-git-info": "^9.0.0",
++        "json-parse-even-better-errors": "^5.0.0",
++        "proc-log": "^6.0.0",
++        "semver": "^7.5.3",
++        "spdx-expression-parse": "^4.0.0"
+       },
+       "engines": {
+-        "node": "^14.17.0 || ^16.13.0 || >=18.0.0"
++        "node": "^20.17.0 || >=22.9.0"
+       }
+     },
+     "node_modules/npm/node_modules/@npmcli/promise-spawn": {
+-      "version": "6.0.2",
++      "version": "9.0.1",
+       "inBundle": true,
+       "license": "ISC",
+       "dependencies": {
+-        "which": "^3.0.0"
++        "which": "^6.0.0"
+       },
+       "engines": {
+-        "node": "^14.17.0 || ^16.13.0 || >=18.0.0"
++        "node": "^20.17.0 || >=22.9.0"
+       }
+     },
+     "node_modules/npm/node_modules/@npmcli/query": {
+-      "version": "3.1.0",
++      "version": "5.0.0",
+       "inBundle": true,
+       "license": "ISC",
+       "dependencies": {
+-        "postcss-selector-parser": "^6.0.10"
++        "postcss-selector-parser": "^7.0.0"
+       },
+       "engines": {
+-        "node": "^14.17.0 || ^16.13.0 || >=18.0.0"
++        "node": "^20.17.0 || >=22.9.0"
+       }
+     },
+-    "node_modules/npm/node_modules/@npmcli/run-script": {
+-      "version": "6.0.2",
++    "node_modules/npm/node_modules/@npmcli/redact": {
++      "version": "4.0.0",
+       "inBundle": true,
+       "license": "ISC",
+-      "dependencies": {
+-        "@npmcli/node-gyp": "^3.0.0",
+-        "@npmcli/promise-spawn": "^6.0.0",
+-        "node-gyp": "^9.0.0",
+-        "read-package-json-fast": "^3.0.0",
+-        "which": "^3.0.0"
+-      },
+       "engines": {
+-        "node": "^14.17.0 || ^16.13.0 || >=18.0.0"
++        "node": "^20.17.0 || >=22.9.0"
+       }
+     },
+-    "node_modules/npm/node_modules/@pkgjs/parseargs": {
+-      "version": "0.11.0",
++    "node_modules/npm/node_modules/@npmcli/run-script": {
++      "version": "10.0.4",
+       "inBundle": true,
+-      "license": "MIT",
+-      "optional": true,
++      "license": "ISC",
++      "dependencies": {
++        "@npmcli/node-gyp": "^5.0.0",
++        "@npmcli/package-json": "^7.0.0",
++        "@npmcli/promise-spawn": "^9.0.0",
++        "node-gyp": "^12.1.0",
++        "proc-log": "^6.0.0"
++      },
+       "engines": {
+-        "node": ">=14"
++        "node": "^20.17.0 || >=22.9.0"
+       }
+     },
+     "node_modules/npm/node_modules/@sigstore/bundle": {
+-      "version": "1.1.0",
++      "version": "4.0.0",
+       "inBundle": true,
+       "license": "Apache-2.0",
+       "dependencies": {
+-        "@sigstore/protobuf-specs": "^0.2.0"
++        "@sigstore/protobuf-specs": "^0.5.0"
+       },
+       "engines": {
+-        "node": "^14.17.0 || ^16.13.0 || >=18.0.0"
++        "node": "^20.17.0 || >=22.9.0"
++      }
++    },
++    "node_modules/npm/node_modules/@sigstore/core": {
++      "version": "3.2.1",
++      "inBundle": true,
++      "license": "Apache-2.0",
++      "engines": {
++        "node": "^20.17.0 || >=22.9.0"
+       }
+     },
+     "node_modules/npm/node_modules/@sigstore/protobuf-specs": {
+-      "version": "0.2.1",
++      "version": "0.5.1",
+       "inBundle": true,
+       "license": "Apache-2.0",
+       "engines": {
+-        "node": "^14.17.0 || ^16.13.0 || >=18.0.0"
++        "node": "^18.17.0 || >=20.5.0"
+       }
+     },
+     "node_modules/npm/node_modules/@sigstore/sign": {
+-      "version": "1.0.0",
++      "version": "4.1.1",
+       "inBundle": true,
+       "license": "Apache-2.0",
+       "dependencies": {
+-        "@sigstore/bundle": "^1.1.0",
+-        "@sigstore/protobuf-specs": "^0.2.0",
+-        "make-fetch-happen": "^11.0.1"
++        "@gar/promise-retry": "^1.0.2",
++        "@sigstore/bundle": "^4.0.0",
++        "@sigstore/core": "^3.2.0",
++        "@sigstore/protobuf-specs": "^0.5.0",
++        "make-fetch-happen": "^15.0.4",
++        "proc-log": "^6.1.0"
+       },
+       "engines": {
+-        "node": "^14.17.0 || ^16.13.0 || >=18.0.0"
++        "node": "^20.17.0 || >=22.9.0"
+       }
+     },
+     "node_modules/npm/node_modules/@sigstore/tuf": {
+-      "version": "1.0.3",
++      "version": "4.0.2",
+       "inBundle": true,
+       "license": "Apache-2.0",
+       "dependencies": {
+-        "@sigstore/protobuf-specs": "^0.2.0",
+-        "tuf-js": "^1.1.7"
++        "@sigstore/protobuf-specs": "^0.5.0",
++        "tuf-js": "^4.1.0"
+       },
+       "engines": {
+-        "node": "^14.17.0 || ^16.13.0 || >=18.0.0"
++        "node": "^20.17.0 || >=22.9.0"
+       }
+     },
+-    "node_modules/npm/node_modules/@tootallnate/once": {
+-      "version": "2.0.0",
++    "node_modules/npm/node_modules/@sigstore/verify": {
++      "version": "3.1.1",
+       "inBundle": true,
+-      "license": "MIT",
++      "license": "Apache-2.0",
++      "dependencies": {
++        "@sigstore/bundle": "^4.0.0",
++        "@sigstore/core": "^3.2.1",
++        "@sigstore/protobuf-specs": "^0.5.0"
++      },
+       "engines": {
+-        "node": ">= 10"
++        "node": "^20.17.0 || >=22.9.0"
+       }
+     },
+     "node_modules/npm/node_modules/@tufjs/canonical-json": {
+-      "version": "1.0.0",
++      "version": "2.0.0",
+       "inBundle": true,
+       "license": "MIT",
+       "engines": {
+-        "node": "^14.17.0 || ^16.13.0 || >=18.0.0"
++        "node": "^16.14.0 || >=18.0.0"
+       }
+     },
+     "node_modules/npm/node_modules/@tufjs/models": {
+-      "version": "1.0.4",
++      "version": "4.1.0",
+       "inBundle": true,
+       "license": "MIT",
+       "dependencies": {
+-        "@tufjs/canonical-json": "1.0.0",
+-        "minimatch": "^9.0.0"
++        "@tufjs/canonical-json": "2.0.0",
++        "minimatch": "^10.1.1"
+       },
+       "engines": {
+-        "node": "^14.17.0 || ^16.13.0 || >=18.0.0"
++        "node": "^20.17.0 || >=22.9.0"
+       }
+     },
+     "node_modules/npm/node_modules/abbrev": {
+-      "version": "2.0.0",
++      "version": "4.0.0",
+       "inBundle": true,
+       "license": "ISC",
+       "engines": {
+-        "node": "^14.17.0 || ^16.13.0 || >=18.0.0"
++        "node": "^20.17.0 || >=22.9.0"
+       }
+     },
+     "node_modules/npm/node_modules/agent-base": {
+-      "version": "6.0.2",
+-      "inBundle": true,
+-      "license": "MIT",
+-      "dependencies": {
+-        "debug": "4"
+-      },
+-      "engines": {
+-        "node": ">= 6.0.0"
+-      }
+-    },
+-    "node_modules/npm/node_modules/agentkeepalive": {
+-      "version": "4.5.0",
+-      "inBundle": true,
+-      "license": "MIT",
+-      "dependencies": {
+-        "humanize-ms": "^1.2.1"
+-      },
+-      "engines": {
+-        "node": ">= 8.0.0"
+-      }
+-    },
+-    "node_modules/npm/node_modules/aggregate-error": {
+-      "version": "3.1.0",
+-      "inBundle": true,
+-      "license": "MIT",
+-      "dependencies": {
+-        "clean-stack": "^2.0.0",
+-        "indent-string": "^4.0.0"
+-      },
+-      "engines": {
+-        "node": ">=8"
+-      }
+-    },
+-    "node_modules/npm/node_modules/ansi-regex": {
+-      "version": "5.0.1",
+-      "inBundle": true,
+-      "license": "MIT",
+-      "engines": {
+-        "node": ">=8"
+-      }
+-    },
+-    "node_modules/npm/node_modules/ansi-styles": {
+-      "version": "4.3.0",
++      "version": "7.1.4",
+       "inBundle": true,
+       "license": "MIT",
+-      "dependencies": {
+-        "color-convert": "^2.0.1"
+-      },
+       "engines": {
+-        "node": ">=8"
+-      },
+-      "funding": {
+-        "url": "https://github.com/chalk/ansi-styles?sponsor=1"
++        "node": ">= 14"
+       }
+     },
+     "node_modules/npm/node_modules/aproba": {
+-      "version": "2.0.0",
++      "version": "2.1.0",
+       "inBundle": true,
+       "license": "ISC"
+     },
+@@ -22447,81 +22319,73 @@
+       "inBundle": true,
+       "license": "MIT"
+     },
+-    "node_modules/npm/node_modules/are-we-there-yet": {
+-      "version": "4.0.2",
++    "node_modules/npm/node_modules/balanced-match": {
++      "version": "4.0.4",
+       "inBundle": true,
+-      "license": "ISC",
++      "license": "MIT",
+       "engines": {
+-        "node": "^14.17.0 || ^16.13.0 || >=18.0.0"
++        "node": "18 || 20 || >=22"
+       }
+     },
+-    "node_modules/npm/node_modules/balanced-match": {
+-      "version": "1.0.2",
+-      "inBundle": true,
+-      "license": "MIT"
+-    },
+     "node_modules/npm/node_modules/bin-links": {
+-      "version": "4.0.3",
++      "version": "6.0.2",
+       "inBundle": true,
+       "license": "ISC",
+       "dependencies": {
+-        "cmd-shim": "^6.0.0",
+-        "npm-normalize-package-bin": "^3.0.0",
+-        "read-cmd-shim": "^4.0.0",
+-        "write-file-atomic": "^5.0.0"
++        "cmd-shim": "^8.0.0",
++        "npm-normalize-package-bin": "^5.0.0",
++        "proc-log": "^6.0.0",
++        "read-cmd-shim": "^6.0.0",
++        "write-file-atomic": "^7.0.0"
+       },
+       "engines": {
+-        "node": "^14.17.0 || ^16.13.0 || >=18.0.0"
++        "node": "^20.17.0 || >=22.9.0"
+       }
+     },
+     "node_modules/npm/node_modules/binary-extensions": {
+-      "version": "2.2.0",
++      "version": "3.1.0",
+       "inBundle": true,
+       "license": "MIT",
+       "engines": {
+-        "node": ">=8"
++        "node": ">=18.20"
++      },
++      "funding": {
++        "url": "https://github.com/sponsors/sindresorhus"
+       }
+     },
+     "node_modules/npm/node_modules/brace-expansion": {
+-      "version": "2.0.1",
++      "version": "5.0.9",
+       "inBundle": true,
+       "license": "MIT",
+       "dependencies": {
+-        "balanced-match": "^1.0.0"
++        "balanced-match": "^4.0.2"
++      },
++      "engines": {
++        "node": "20 || >=22"
+       }
+     },
+-    "node_modules/npm/node_modules/builtins": {
+-      "version": "5.0.1",
+-      "inBundle": true,
+-      "license": "MIT",
+-      "dependencies": {
+-        "semver": "^7.0.0"
+-      }
+-    },
+-    "node_modules/npm/node_modules/cacache": {
+-      "version": "17.1.4",
++    "node_modules/npm/node_modules/cacache": {
++      "version": "20.0.4",
+       "inBundle": true,
+       "license": "ISC",
+       "dependencies": {
+-        "@npmcli/fs": "^3.1.0",
++        "@npmcli/fs": "^5.0.0",
+         "fs-minipass": "^3.0.0",
+-        "glob": "^10.2.2",
+-        "lru-cache": "^7.7.1",
++        "glob": "^13.0.0",
++        "lru-cache": "^11.1.0",
+         "minipass": "^7.0.3",
+-        "minipass-collect": "^1.0.2",
++        "minipass-collect": "^2.0.1",
+         "minipass-flush": "^1.0.5",
+         "minipass-pipeline": "^1.2.4",
+-        "p-map": "^4.0.0",
+-        "ssri": "^10.0.0",
+-        "tar": "^6.1.11",
+-        "unique-filename": "^3.0.0"
++        "p-map": "^7.0.2",
++        "ssri": "^13.0.0"
+       },
+       "engines": {
+-        "node": "^14.17.0 || ^16.13.0 || >=18.0.0"
++        "node": "^20.17.0 || >=22.9.0"
+       }
+     },
+     "node_modules/npm/node_modules/chalk": {
+-      "version": "5.3.0",
++      "version": "5.6.2",
+       "inBundle": true,
+       "license": "MIT",
+       "engines": {
+@@ -22532,15 +22396,15 @@
+       }
+     },
+     "node_modules/npm/node_modules/chownr": {
+-      "version": "2.0.0",
++      "version": "3.0.0",
+       "inBundle": true,
+-      "license": "ISC",
++      "license": "BlueOak-1.0.0",
+       "engines": {
+-        "node": ">=10"
++        "node": ">=18"
+       }
+     },
+     "node_modules/npm/node_modules/ci-info": {
+-      "version": "4.0.0",
++      "version": "4.4.0",
+       "funding": [
+         {
+           "type": "github",
+@@ -22554,142 +22418,27 @@
+       }
+     },
+     "node_modules/npm/node_modules/cidr-regex": {
+-      "version": "3.1.1",
++      "version": "5.0.5",
+       "inBundle": true,
+       "license": "BSD-2-Clause",
+-      "dependencies": {
+-        "ip-regex": "^4.1.0"
+-      },
+-      "engines": {
+-        "node": ">=10"
+-      }
+-    },
+-    "node_modules/npm/node_modules/clean-stack": {
+-      "version": "2.2.0",
+-      "inBundle": true,
+-      "license": "MIT",
+-      "engines": {
+-        "node": ">=6"
+-      }
+-    },
+-    "node_modules/npm/node_modules/cli-columns": {
+-      "version": "4.0.0",
+-      "inBundle": true,
+-      "license": "MIT",
+-      "dependencies": {
+-        "string-width": "^4.2.3",
+-        "strip-ansi": "^6.0.1"
+-      },
+-      "engines": {
+-        "node": ">= 10"
+-      }
+-    },
+-    "node_modules/npm/node_modules/cli-table3": {
+-      "version": "0.6.3",
+-      "inBundle": true,
+-      "license": "MIT",
+-      "dependencies": {
+-        "string-width": "^4.2.0"
+-      },
+-      "engines": {
+-        "node": "10.* || >= 12.*"
+-      },
+-      "optionalDependencies": {
+-        "@colors/colors": "1.5.0"
+-      }
+-    },
+-    "node_modules/npm/node_modules/clone": {
+-      "version": "1.0.4",
+-      "inBundle": true,
+-      "license": "MIT",
+       "engines": {
+-        "node": ">=0.8"
++        "node": ">=20"
+       }
+     },
+     "node_modules/npm/node_modules/cmd-shim": {
+-      "version": "6.0.2",
+-      "inBundle": true,
+-      "license": "ISC",
+-      "engines": {
+-        "node": "^14.17.0 || ^16.13.0 || >=18.0.0"
+-      }
+-    },
+-    "node_modules/npm/node_modules/color-convert": {
+-      "version": "2.0.1",
+-      "inBundle": true,
+-      "license": "MIT",
+-      "dependencies": {
+-        "color-name": "~1.1.4"
+-      },
+-      "engines": {
+-        "node": ">=7.0.0"
+-      }
+-    },
+-    "node_modules/npm/node_modules/color-name": {
+-      "version": "1.1.4",
+-      "inBundle": true,
+-      "license": "MIT"
+-    },
+-    "node_modules/npm/node_modules/color-support": {
+-      "version": "1.1.3",
++      "version": "8.0.0",
+       "inBundle": true,
+       "license": "ISC",
+-      "bin": {
+-        "color-support": "bin.js"
+-      }
+-    },
+-    "node_modules/npm/node_modules/columnify": {
+-      "version": "1.6.0",
+-      "inBundle": true,
+-      "license": "MIT",
+-      "dependencies": {
+-        "strip-ansi": "^6.0.1",
+-        "wcwidth": "^1.0.0"
+-      },
+       "engines": {
+-        "node": ">=8.0.0"
++        "node": "^20.17.0 || >=22.9.0"
+       }
+     },
+     "node_modules/npm/node_modules/common-ancestor-path": {
+-      "version": "1.0.1",
+-      "inBundle": true,
+-      "license": "ISC"
+-    },
+-    "node_modules/npm/node_modules/concat-map": {
+-      "version": "0.0.1",
+-      "inBundle": true,
+-      "license": "MIT"
+-    },
+-    "node_modules/npm/node_modules/console-control-strings": {
+-      "version": "1.1.0",
+-      "inBundle": true,
+-      "license": "ISC"
+-    },
+-    "node_modules/npm/node_modules/cross-spawn": {
+-      "version": "7.0.6",
+-      "inBundle": true,
+-      "license": "MIT",
+-      "dependencies": {
+-        "path-key": "^3.1.0",
+-        "shebang-command": "^2.0.0",
+-        "which": "^2.0.1"
+-      },
+-      "engines": {
+-        "node": ">= 8"
+-      }
+-    },
+-    "node_modules/npm/node_modules/cross-spawn/node_modules/which": {
+-      "version": "2.0.2",
++      "version": "2.0.0",
+       "inBundle": true,
+-      "license": "ISC",
+-      "dependencies": {
+-        "isexe": "^2.0.0"
+-      },
+-      "bin": {
+-        "node-which": "bin/node-which"
+-      },
++      "license": "BlueOak-1.0.0",
+       "engines": {
+-        "node": ">= 8"
++        "node": ">= 18"
+       }
+     },
+     "node_modules/npm/node_modules/cssesc": {
+@@ -22704,7 +22453,7 @@
+       }
+     },
+     "node_modules/npm/node_modules/debug": {
+-      "version": "4.3.7",
++      "version": "4.4.3",
+       "inBundle": true,
+       "license": "MIT",
+       "dependencies": {
+@@ -22719,49 +22468,14 @@
+         }
+       }
+     },
+-    "node_modules/npm/node_modules/defaults": {
+-      "version": "1.0.4",
+-      "inBundle": true,
+-      "license": "MIT",
+-      "dependencies": {
+-        "clone": "^1.0.2"
+-      },
+-      "funding": {
+-        "url": "https://github.com/sponsors/sindresorhus"
+-      }
+-    },
+-    "node_modules/npm/node_modules/delegates": {
+-      "version": "1.0.0",
+-      "inBundle": true,
+-      "license": "MIT"
+-    },
+     "node_modules/npm/node_modules/diff": {
+-      "version": "5.2.0",
++      "version": "8.0.4",
+       "inBundle": true,
+       "license": "BSD-3-Clause",
+       "engines": {
+         "node": ">=0.3.1"
+       }
+     },
+-    "node_modules/npm/node_modules/eastasianwidth": {
+-      "version": "0.2.0",
+-      "inBundle": true,
+-      "license": "MIT"
+-    },
+-    "node_modules/npm/node_modules/emoji-regex": {
+-      "version": "8.0.0",
+-      "inBundle": true,
+-      "license": "MIT"
+-    },
+-    "node_modules/npm/node_modules/encoding": {
+-      "version": "0.1.13",
+-      "inBundle": true,
+-      "license": "MIT",
+-      "optional": true,
+-      "dependencies": {
+-        "iconv-lite": "^0.6.2"
+-      }
+-    },
+     "node_modules/npm/node_modules/env-paths": {
+       "version": "2.2.1",
+       "inBundle": true,
+@@ -22770,13 +22484,8 @@
+         "node": ">=6"
+       }
+     },
+-    "node_modules/npm/node_modules/err-code": {
+-      "version": "2.0.3",
+-      "inBundle": true,
+-      "license": "MIT"
+-    },
+     "node_modules/npm/node_modules/exponential-backoff": {
+-      "version": "3.1.1",
++      "version": "3.1.3",
+       "inBundle": true,
+       "license": "Apache-2.0"
+     },
+@@ -22788,21 +22497,6 @@
+         "node": ">= 4.9.1"
+       }
+     },
+-    "node_modules/npm/node_modules/foreground-child": {
+-      "version": "3.1.1",
+-      "inBundle": true,
+-      "license": "ISC",
+-      "dependencies": {
+-        "cross-spawn": "^7.0.0",
+-        "signal-exit": "^4.0.1"
+-      },
+-      "engines": {
+-        "node": ">=14"
+-      },
+-      "funding": {
+-        "url": "https://github.com/sponsors/isaacs"
+-      }
+-    },
+     "node_modules/npm/node_modules/fs-minipass": {
+       "version": "3.0.3",
+       "inBundle": true,
+@@ -22814,53 +22508,17 @@
+         "node": "^14.17.0 || ^16.13.0 || >=18.0.0"
+       }
+     },
+-    "node_modules/npm/node_modules/fs.realpath": {
+-      "version": "1.0.0",
+-      "inBundle": true,
+-      "license": "ISC"
+-    },
+-    "node_modules/npm/node_modules/function-bind": {
+-      "version": "1.1.2",
+-      "inBundle": true,
+-      "license": "MIT",
+-      "funding": {
+-        "url": "https://github.com/sponsors/ljharb"
+-      }
+-    },
+-    "node_modules/npm/node_modules/gauge": {
+-      "version": "5.0.1",
+-      "inBundle": true,
+-      "license": "ISC",
+-      "dependencies": {
+-        "aproba": "^1.0.3 || ^2.0.0",
+-        "color-support": "^1.1.3",
+-        "console-control-strings": "^1.1.0",
+-        "has-unicode": "^2.0.1",
+-        "signal-exit": "^4.0.1",
+-        "string-width": "^4.2.3",
+-        "strip-ansi": "^6.0.1",
+-        "wide-align": "^1.1.5"
+-      },
+-      "engines": {
+-        "node": "^14.17.0 || ^16.13.0 || >=18.0.0"
+-      }
+-    },
+     "node_modules/npm/node_modules/glob": {
+-      "version": "10.3.10",
++      "version": "13.0.6",
+       "inBundle": true,
+-      "license": "ISC",
++      "license": "BlueOak-1.0.0",
+       "dependencies": {
+-        "foreground-child": "^3.1.0",
+-        "jackspeak": "^2.3.5",
+-        "minimatch": "^9.0.1",
+-        "minipass": "^5.0.0 || ^6.0.2 || ^7.0.0",
+-        "path-scurry": "^1.10.1"
+-      },
+-      "bin": {
+-        "glob": "dist/esm/bin.mjs"
++        "minimatch": "^10.2.2",
++        "minipass": "^7.1.3",
++        "path-scurry": "^2.0.2"
+       },
+       "engines": {
+-        "node": ">=16 || 14 >=14.17"
++        "node": "18 || 20 || >=22"
+       },
+       "funding": {
+         "url": "https://github.com/sponsors/isaacs"
+@@ -22871,73 +22529,48 @@
+       "inBundle": true,
+       "license": "ISC"
+     },
+-    "node_modules/npm/node_modules/has-unicode": {
+-      "version": "2.0.1",
+-      "inBundle": true,
+-      "license": "ISC"
+-    },
+-    "node_modules/npm/node_modules/hasown": {
+-      "version": "2.0.1",
+-      "inBundle": true,
+-      "license": "MIT",
+-      "dependencies": {
+-        "function-bind": "^1.1.2"
+-      },
+-      "engines": {
+-        "node": ">= 0.4"
+-      }
+-    },
+     "node_modules/npm/node_modules/hosted-git-info": {
+-      "version": "6.1.3",
++      "version": "9.0.3",
+       "inBundle": true,
+       "license": "ISC",
+       "dependencies": {
+-        "lru-cache": "^7.5.1"
++        "lru-cache": "^11.1.0"
+       },
+       "engines": {
+-        "node": "^14.17.0 || ^16.13.0 || >=18.0.0"
++        "node": "^20.17.0 || >=22.9.0"
+       }
+     },
+     "node_modules/npm/node_modules/http-cache-semantics": {
+-      "version": "4.1.1",
++      "version": "4.2.0",
+       "inBundle": true,
+       "license": "BSD-2-Clause"
+     },
+     "node_modules/npm/node_modules/http-proxy-agent": {
+-      "version": "5.0.0",
++      "version": "7.0.2",
+       "inBundle": true,
+       "license": "MIT",
+       "dependencies": {
+-        "@tootallnate/once": "2",
+-        "agent-base": "6",
+-        "debug": "4"
++        "agent-base": "^7.1.0",
++        "debug": "^4.3.4"
+       },
+       "engines": {
+-        "node": ">= 6"
++        "node": ">= 14"
+       }
+     },
+     "node_modules/npm/node_modules/https-proxy-agent": {
+-      "version": "5.0.1",
++      "version": "7.0.6",
+       "inBundle": true,
+       "license": "MIT",
+       "dependencies": {
+-        "agent-base": "6",
++        "agent-base": "^7.1.2",
+         "debug": "4"
+       },
+       "engines": {
+-        "node": ">= 6"
+-      }
+-    },
+-    "node_modules/npm/node_modules/humanize-ms": {
+-      "version": "1.2.1",
+-      "inBundle": true,
+-      "license": "MIT",
+-      "dependencies": {
+-        "ms": "^2.0.0"
++        "node": ">= 14"
+       }
+     },
+     "node_modules/npm/node_modules/iconv-lite": {
+-      "version": "0.6.3",
++      "version": "0.7.2",
+       "inBundle": true,
+       "license": "MIT",
+       "optional": true,
+@@ -22946,172 +22579,80 @@
+       },
+       "engines": {
+         "node": ">=0.10.0"
++      },
++      "funding": {
++        "type": "opencollective",
++        "url": "https://opencollective.com/express"
+       }
+     },
+     "node_modules/npm/node_modules/ignore-walk": {
+-      "version": "6.0.4",
++      "version": "8.0.0",
+       "inBundle": true,
+       "license": "ISC",
+       "dependencies": {
+-        "minimatch": "^9.0.0"
++        "minimatch": "^10.0.3"
+       },
+       "engines": {
+-        "node": "^14.17.0 || ^16.13.0 || >=18.0.0"
++        "node": "^20.17.0 || >=22.9.0"
+       }
+     },
+-    "node_modules/npm/node_modules/imurmurhash": {
+-      "version": "0.1.4",
++    "node_modules/npm/node_modules/ini": {
++      "version": "6.0.0",
+       "inBundle": true,
+-      "license": "MIT",
++      "license": "ISC",
+       "engines": {
+-        "node": ">=0.8.19"
++        "node": "^20.17.0 || >=22.9.0"
+       }
+     },
+-    "node_modules/npm/node_modules/indent-string": {
+-      "version": "4.0.0",
+-      "inBundle": true,
+-      "license": "MIT",
+-      "engines": {
+-        "node": ">=8"
+-      }
+-    },
+-    "node_modules/npm/node_modules/infer-owner": {
+-      "version": "1.0.4",
+-      "inBundle": true,
+-      "license": "ISC"
+-    },
+-    "node_modules/npm/node_modules/inflight": {
+-      "version": "1.0.6",
+-      "inBundle": true,
+-      "license": "ISC",
+-      "dependencies": {
+-        "once": "^1.3.0",
+-        "wrappy": "1"
+-      }
+-    },
+-    "node_modules/npm/node_modules/inherits": {
+-      "version": "2.0.4",
+-      "inBundle": true,
+-      "license": "ISC"
+-    },
+-    "node_modules/npm/node_modules/ini": {
+-      "version": "4.1.1",
+-      "inBundle": true,
+-      "license": "ISC",
+-      "engines": {
+-        "node": "^14.17.0 || ^16.13.0 || >=18.0.0"
+-      }
+-    },
+-    "node_modules/npm/node_modules/init-package-json": {
+-      "version": "5.0.0",
++    "node_modules/npm/node_modules/init-package-json": {
++      "version": "8.2.5",
+       "inBundle": true,
+       "license": "ISC",
+       "dependencies": {
+-        "npm-package-arg": "^10.0.0",
+-        "promzard": "^1.0.0",
+-        "read": "^2.0.0",
+-        "read-package-json": "^6.0.0",
+-        "semver": "^7.3.5",
+-        "validate-npm-package-license": "^3.0.4",
+-        "validate-npm-package-name": "^5.0.0"
++        "@npmcli/package-json": "^7.0.0",
++        "npm-package-arg": "^13.0.0",
++        "promzard": "^3.0.1",
++        "read": "^5.0.1",
++        "semver": "^7.7.2",
++        "validate-npm-package-name": "^7.0.0"
+       },
+       "engines": {
+-        "node": "^14.17.0 || ^16.13.0 || >=18.0.0"
++        "node": "^20.17.0 || >=22.9.0"
+       }
+     },
+     "node_modules/npm/node_modules/ip-address": {
+-      "version": "9.0.5",
++      "version": "10.5.0",
+       "inBundle": true,
+       "license": "MIT",
+-      "dependencies": {
+-        "jsbn": "1.1.0",
+-        "sprintf-js": "^1.1.3"
+-      },
+       "engines": {
+         "node": ">= 12"
+       }
+     },
+-    "node_modules/npm/node_modules/ip-address/node_modules/sprintf-js": {
+-      "version": "1.1.3",
+-      "inBundle": true,
+-      "license": "BSD-3-Clause"
+-    },
+-    "node_modules/npm/node_modules/ip-regex": {
+-      "version": "4.3.0",
+-      "inBundle": true,
+-      "license": "MIT",
+-      "engines": {
+-        "node": ">=8"
+-      }
+-    },
+     "node_modules/npm/node_modules/is-cidr": {
+-      "version": "4.0.2",
++      "version": "6.0.4",
+       "inBundle": true,
+       "license": "BSD-2-Clause",
+       "dependencies": {
+-        "cidr-regex": "^3.1.1"
+-      },
+-      "engines": {
+-        "node": ">=10"
+-      }
+-    },
+-    "node_modules/npm/node_modules/is-core-module": {
+-      "version": "2.13.1",
+-      "inBundle": true,
+-      "license": "MIT",
+-      "dependencies": {
+-        "hasown": "^2.0.0"
++        "cidr-regex": "^5.0.4"
+       },
+-      "funding": {
+-        "url": "https://github.com/sponsors/ljharb"
+-      }
+-    },
+-    "node_modules/npm/node_modules/is-fullwidth-code-point": {
+-      "version": "3.0.0",
+-      "inBundle": true,
+-      "license": "MIT",
+       "engines": {
+-        "node": ">=8"
++        "node": ">=20"
+       }
+     },
+-    "node_modules/npm/node_modules/is-lambda": {
+-      "version": "1.0.1",
+-      "inBundle": true,
+-      "license": "MIT"
+-    },
+     "node_modules/npm/node_modules/isexe": {
+-      "version": "2.0.0",
+-      "inBundle": true,
+-      "license": "ISC"
+-    },
+-    "node_modules/npm/node_modules/jackspeak": {
+-      "version": "2.3.6",
++      "version": "4.0.0",
+       "inBundle": true,
+       "license": "BlueOak-1.0.0",
+-      "dependencies": {
+-        "@isaacs/cliui": "^8.0.2"
+-      },
+       "engines": {
+-        "node": ">=14"
+-      },
+-      "funding": {
+-        "url": "https://github.com/sponsors/isaacs"
+-      },
+-      "optionalDependencies": {
+-        "@pkgjs/parseargs": "^0.11.0"
++        "node": ">=20"
+       }
+     },
+-    "node_modules/npm/node_modules/jsbn": {
+-      "version": "1.1.0",
+-      "inBundle": true,
+-      "license": "MIT"
+-    },
+     "node_modules/npm/node_modules/json-parse-even-better-errors": {
+-      "version": "3.0.1",
++      "version": "5.0.0",
+       "inBundle": true,
+       "license": "MIT",
+       "engines": {
+-        "node": "^14.17.0 || ^16.13.0 || >=18.0.0"
++        "node": "^20.17.0 || >=22.9.0"
+       }
+     },
+     "node_modules/npm/node_modules/json-stringify-nice": {
+@@ -23141,303 +22682,238 @@
+       "license": "MIT"
+     },
+     "node_modules/npm/node_modules/libnpmaccess": {
+-      "version": "7.0.3",
++      "version": "10.0.3",
+       "inBundle": true,
+       "license": "ISC",
+       "dependencies": {
+-        "npm-package-arg": "^10.1.0",
+-        "npm-registry-fetch": "^14.0.3"
++        "npm-package-arg": "^13.0.0",
++        "npm-registry-fetch": "^19.0.0"
+       },
+       "engines": {
+-        "node": "^14.17.0 || ^16.13.0 || >=18.0.0"
++        "node": "^20.17.0 || >=22.9.0"
+       }
+     },
+     "node_modules/npm/node_modules/libnpmdiff": {
+-      "version": "5.0.21",
++      "version": "8.1.12",
+       "inBundle": true,
+       "license": "ISC",
+       "dependencies": {
+-        "@npmcli/arborist": "^6.5.0",
+-        "@npmcli/disparity-colors": "^3.0.0",
+-        "@npmcli/installed-package-contents": "^2.0.2",
+-        "binary-extensions": "^2.2.0",
+-        "diff": "^5.1.0",
+-        "minimatch": "^9.0.0",
+-        "npm-package-arg": "^10.1.0",
+-        "pacote": "^15.0.8",
+-        "tar": "^6.1.13"
++        "@npmcli/arborist": "^9.9.1",
++        "@npmcli/installed-package-contents": "^4.0.0",
++        "binary-extensions": "^3.0.0",
++        "diff": "^8.0.2",
++        "minimatch": "^10.0.3",
++        "npm-package-arg": "^13.0.0",
++        "pacote": "^21.0.2",
++        "tar": "^7.5.1"
+       },
+       "engines": {
+-        "node": "^14.17.0 || ^16.13.0 || >=18.0.0"
++        "node": "^20.17.0 || >=22.9.0"
+       }
+     },
+     "node_modules/npm/node_modules/libnpmexec": {
+-      "version": "6.0.5",
++      "version": "10.3.2",
+       "inBundle": true,
+       "license": "ISC",
+       "dependencies": {
+-        "@npmcli/arborist": "^6.5.0",
+-        "@npmcli/run-script": "^6.0.0",
++        "@gar/promise-retry": "^1.0.0",
++        "@npmcli/arborist": "^9.9.1",
++        "@npmcli/package-json": "^7.0.0",
++        "@npmcli/run-script": "^10.0.0",
+         "ci-info": "^4.0.0",
+-        "npm-package-arg": "^10.1.0",
+-        "npmlog": "^7.0.1",
+-        "pacote": "^15.0.8",
+-        "proc-log": "^3.0.0",
+-        "read": "^2.0.0",
+-        "read-package-json-fast": "^3.0.2",
++        "npm-package-arg": "^13.0.0",
++        "pacote": "^21.0.2",
++        "proc-log": "^6.0.0",
++        "read": "^5.0.1",
+         "semver": "^7.3.7",
+-        "walk-up-path": "^3.0.1"
++        "signal-exit": "^4.1.0",
++        "walk-up-path": "^4.0.0"
+       },
+       "engines": {
+-        "node": "^14.17.0 || ^16.13.0 || >=18.0.0"
++        "node": "^20.17.0 || >=22.9.0"
+       }
+     },
+     "node_modules/npm/node_modules/libnpmfund": {
+-      "version": "4.2.2",
+-      "inBundle": true,
+-      "license": "ISC",
+-      "dependencies": {
+-        "@npmcli/arborist": "^6.5.0"
+-      },
+-      "engines": {
+-        "node": "^14.17.0 || ^16.13.0 || >=18.0.0"
+-      }
+-    },
+-    "node_modules/npm/node_modules/libnpmhook": {
+-      "version": "9.0.4",
++      "version": "7.0.26",
+       "inBundle": true,
+       "license": "ISC",
+       "dependencies": {
+-        "aproba": "^2.0.0",
+-        "npm-registry-fetch": "^14.0.3"
++        "@npmcli/arborist": "^9.9.1"
+       },
+       "engines": {
+-        "node": "^14.17.0 || ^16.13.0 || >=18.0.0"
++        "node": "^20.17.0 || >=22.9.0"
+       }
+     },
+     "node_modules/npm/node_modules/libnpmorg": {
+-      "version": "5.0.5",
++      "version": "8.0.1",
+       "inBundle": true,
+       "license": "ISC",
+       "dependencies": {
+         "aproba": "^2.0.0",
+-        "npm-registry-fetch": "^14.0.3"
++        "npm-registry-fetch": "^19.0.0"
+       },
+       "engines": {
+-        "node": "^14.17.0 || ^16.13.0 || >=18.0.0"
++        "node": "^20.17.0 || >=22.9.0"
+       }
+     },
+     "node_modules/npm/node_modules/libnpmpack": {
+-      "version": "5.0.21",
++      "version": "9.1.13",
+       "inBundle": true,
+       "license": "ISC",
+       "dependencies": {
+-        "@npmcli/arborist": "^6.5.0",
+-        "@npmcli/run-script": "^6.0.0",
+-        "npm-package-arg": "^10.1.0",
+-        "pacote": "^15.0.8"
++        "@npmcli/arborist": "^9.9.1",
++        "@npmcli/run-script": "^10.0.0",
++        "npm-package-arg": "^13.0.0",
++        "pacote": "^21.0.2"
+       },
+       "engines": {
+-        "node": "^14.17.0 || ^16.13.0 || >=18.0.0"
++        "node": "^20.17.0 || >=22.9.0"
+       }
+     },
+     "node_modules/npm/node_modules/libnpmpublish": {
+-      "version": "7.5.2",
++      "version": "11.2.0",
+       "inBundle": true,
+       "license": "ISC",
+       "dependencies": {
++        "@npmcli/package-json": "^7.0.0",
+         "ci-info": "^4.0.0",
+-        "normalize-package-data": "^5.0.0",
+-        "npm-package-arg": "^10.1.0",
+-        "npm-registry-fetch": "^14.0.3",
+-        "proc-log": "^3.0.0",
++        "npm-package-arg": "^13.0.0",
++        "npm-registry-fetch": "^19.0.0",
++        "proc-log": "^6.0.0",
+         "semver": "^7.3.7",
+-        "sigstore": "^1.4.0",
+-        "ssri": "^10.0.1"
++        "sigstore": "^4.0.0",
++        "ssri": "^13.0.0"
+       },
+       "engines": {
+-        "node": "^14.17.0 || ^16.13.0 || >=18.0.0"
++        "node": "^20.17.0 || >=22.9.0"
+       }
+     },
+     "node_modules/npm/node_modules/libnpmsearch": {
+-      "version": "6.0.3",
++      "version": "9.0.1",
+       "inBundle": true,
+       "license": "ISC",
+       "dependencies": {
+-        "npm-registry-fetch": "^14.0.3"
++        "npm-registry-fetch": "^19.0.0"
+       },
+       "engines": {
+-        "node": "^14.17.0 || ^16.13.0 || >=18.0.0"
++        "node": "^20.17.0 || >=22.9.0"
+       }
+     },
+     "node_modules/npm/node_modules/libnpmteam": {
+-      "version": "5.0.4",
++      "version": "8.0.2",
+       "inBundle": true,
+       "license": "ISC",
+       "dependencies": {
+         "aproba": "^2.0.0",
+-        "npm-registry-fetch": "^14.0.3"
++        "npm-registry-fetch": "^19.0.0"
+       },
+       "engines": {
+-        "node": "^14.17.0 || ^16.13.0 || >=18.0.0"
++        "node": "^20.17.0 || >=22.9.0"
+       }
+     },
+     "node_modules/npm/node_modules/libnpmversion": {
+-      "version": "4.0.3",
++      "version": "8.0.4",
+       "inBundle": true,
+       "license": "ISC",
+       "dependencies": {
+-        "@npmcli/git": "^4.0.1",
+-        "@npmcli/run-script": "^6.0.0",
+-        "json-parse-even-better-errors": "^3.0.0",
+-        "proc-log": "^3.0.0",
++        "@npmcli/git": "^7.0.0",
++        "@npmcli/run-script": "^10.0.0",
++        "json-parse-even-better-errors": "^5.0.0",
++        "proc-log": "^6.0.0",
+         "semver": "^7.3.7"
+       },
+       "engines": {
+-        "node": "^14.17.0 || ^16.13.0 || >=18.0.0"
++        "node": "^20.17.0 || >=22.9.0"
+       }
+     },
+     "node_modules/npm/node_modules/lru-cache": {
+-      "version": "7.18.3",
++      "version": "11.5.1",
+       "inBundle": true,
+-      "license": "ISC",
++      "license": "BlueOak-1.0.0",
+       "engines": {
+-        "node": ">=12"
++        "node": "20 || >=22"
+       }
+     },
+     "node_modules/npm/node_modules/make-fetch-happen": {
+-      "version": "11.1.1",
++      "version": "15.0.6",
+       "inBundle": true,
+       "license": "ISC",
+       "dependencies": {
+-        "agentkeepalive": "^4.2.1",
+-        "cacache": "^17.0.0",
++        "@gar/promise-retry": "^1.0.0",
++        "@npmcli/agent": "^4.0.0",
++        "@npmcli/redact": "^4.0.0",
++        "cacache": "^20.0.1",
+         "http-cache-semantics": "^4.1.1",
+-        "http-proxy-agent": "^5.0.0",
+-        "https-proxy-agent": "^5.0.0",
+-        "is-lambda": "^1.0.1",
+-        "lru-cache": "^7.7.1",
+-        "minipass": "^5.0.0",
+-        "minipass-fetch": "^3.0.0",
++        "minipass": "^7.0.2",
++        "minipass-fetch": "^5.0.0",
+         "minipass-flush": "^1.0.5",
+         "minipass-pipeline": "^1.2.4",
+-        "negotiator": "^0.6.3",
+-        "promise-retry": "^2.0.1",
+-        "socks-proxy-agent": "^7.0.0",
+-        "ssri": "^10.0.0"
++        "negotiator": "^1.0.0",
++        "proc-log": "^6.0.0",
++        "ssri": "^13.0.0"
+       },
+       "engines": {
+-        "node": "^14.17.0 || ^16.13.0 || >=18.0.0"
+-      }
+-    },
+-    "node_modules/npm/node_modules/make-fetch-happen/node_modules/minipass": {
+-      "version": "5.0.0",
+-      "inBundle": true,
+-      "license": "ISC",
+-      "engines": {
+-        "node": ">=8"
++        "node": "^20.17.0 || >=22.9.0"
+       }
+     },
+     "node_modules/npm/node_modules/minimatch": {
+-      "version": "9.0.3",
++      "version": "10.2.5",
+       "inBundle": true,
+-      "license": "ISC",
++      "license": "BlueOak-1.0.0",
+       "dependencies": {
+-        "brace-expansion": "^2.0.1"
++        "brace-expansion": "^5.0.5"
+       },
+       "engines": {
+-        "node": ">=16 || 14 >=14.17"
++        "node": "18 || 20 || >=22"
+       },
+       "funding": {
+         "url": "https://github.com/sponsors/isaacs"
+       }
+     },
+     "node_modules/npm/node_modules/minipass": {
+-      "version": "7.0.4",
++      "version": "7.1.3",
+       "inBundle": true,
+-      "license": "ISC",
++      "license": "BlueOak-1.0.0",
+       "engines": {
+         "node": ">=16 || 14 >=14.17"
+       }
+     },
+     "node_modules/npm/node_modules/minipass-collect": {
+-      "version": "1.0.2",
+-      "inBundle": true,
+-      "license": "ISC",
+-      "dependencies": {
+-        "minipass": "^3.0.0"
+-      },
+-      "engines": {
+-        "node": ">= 8"
+-      }
+-    },
+-    "node_modules/npm/node_modules/minipass-collect/node_modules/minipass": {
+-      "version": "3.3.6",
++      "version": "2.0.1",
+       "inBundle": true,
+       "license": "ISC",
+       "dependencies": {
+-        "yallist": "^4.0.0"
++        "minipass": "^7.0.3"
+       },
+       "engines": {
+-        "node": ">=8"
++        "node": ">=16 || 14 >=14.17"
+       }
+     },
+     "node_modules/npm/node_modules/minipass-fetch": {
+-      "version": "3.0.4",
++      "version": "5.0.2",
+       "inBundle": true,
+       "license": "MIT",
+       "dependencies": {
+         "minipass": "^7.0.3",
+-        "minipass-sized": "^1.0.3",
+-        "minizlib": "^2.1.2"
++        "minipass-sized": "^2.0.0",
++        "minizlib": "^3.0.1"
+       },
+       "engines": {
+-        "node": "^14.17.0 || ^16.13.0 || >=18.0.0"
++        "node": "^20.17.0 || >=22.9.0"
+       },
+       "optionalDependencies": {
+-        "encoding": "^0.1.13"
++        "iconv-lite": "^0.7.2"
+       }
+     },
+     "node_modules/npm/node_modules/minipass-flush": {
+-      "version": "1.0.5",
+-      "inBundle": true,
+-      "license": "ISC",
+-      "dependencies": {
+-        "minipass": "^3.0.0"
+-      },
+-      "engines": {
+-        "node": ">= 8"
+-      }
+-    },
+-    "node_modules/npm/node_modules/minipass-flush/node_modules/minipass": {
+-      "version": "3.3.6",
+-      "inBundle": true,
+-      "license": "ISC",
+-      "dependencies": {
+-        "yallist": "^4.0.0"
+-      },
+-      "engines": {
+-        "node": ">=8"
+-      }
+-    },
+-    "node_modules/npm/node_modules/minipass-json-stream": {
+-      "version": "1.0.1",
+-      "inBundle": true,
+-      "license": "MIT",
+-      "dependencies": {
+-        "jsonparse": "^1.3.1",
+-        "minipass": "^3.0.0"
+-      }
+-    },
+-    "node_modules/npm/node_modules/minipass-json-stream/node_modules/minipass": {
+-      "version": "3.3.6",
++      "version": "1.0.6",
+       "inBundle": true,
+-      "license": "ISC",
++      "license": "BlueOak-1.0.0",
+       "dependencies": {
+-        "yallist": "^4.0.0"
++        "minipass": "^7.1.3"
+       },
+       "engines": {
+-        "node": ">=8"
++        "node": ">=16 || 14 >=14.17"
+       }
+     },
+     "node_modules/npm/node_modules/minipass-pipeline": {
+@@ -23462,60 +22938,31 @@
+         "node": ">=8"
+       }
+     },
+-    "node_modules/npm/node_modules/minipass-sized": {
+-      "version": "1.0.3",
++    "node_modules/npm/node_modules/minipass-pipeline/node_modules/yallist": {
++      "version": "4.0.0",
+       "inBundle": true,
+-      "license": "ISC",
+-      "dependencies": {
+-        "minipass": "^3.0.0"
+-      },
+-      "engines": {
+-        "node": ">=8"
+-      }
++      "license": "ISC"
+     },
+-    "node_modules/npm/node_modules/minipass-sized/node_modules/minipass": {
+-      "version": "3.3.6",
++    "node_modules/npm/node_modules/minipass-sized": {
++      "version": "2.0.0",
+       "inBundle": true,
+       "license": "ISC",
+       "dependencies": {
+-        "yallist": "^4.0.0"
++        "minipass": "^7.1.2"
+       },
+       "engines": {
+         "node": ">=8"
+       }
+     },
+     "node_modules/npm/node_modules/minizlib": {
+-      "version": "2.1.2",
++      "version": "3.1.0",
+       "inBundle": true,
+       "license": "MIT",
+       "dependencies": {
+-        "minipass": "^3.0.0",
+-        "yallist": "^4.0.0"
+-      },
+-      "engines": {
+-        "node": ">= 8"
+-      }
+-    },
+-    "node_modules/npm/node_modules/minizlib/node_modules/minipass": {
+-      "version": "3.3.6",
+-      "inBundle": true,
+-      "license": "ISC",
+-      "dependencies": {
+-        "yallist": "^4.0.0"
+-      },
+-      "engines": {
+-        "node": ">=8"
+-      }
+-    },
+-    "node_modules/npm/node_modules/mkdirp": {
+-      "version": "1.0.4",
+-      "inBundle": true,
+-      "license": "MIT",
+-      "bin": {
+-        "mkdirp": "bin/cmd.js"
++        "minipass": "^7.1.2"
+       },
+       "engines": {
+-        "node": ">=10"
++        "node": ">= 18"
+       }
+     },
+     "node_modules/npm/node_modules/ms": {
+@@ -23524,15 +22971,15 @@
+       "license": "MIT"
+     },
+     "node_modules/npm/node_modules/mute-stream": {
+-      "version": "1.0.0",
++      "version": "3.0.0",
+       "inBundle": true,
+       "license": "ISC",
+       "engines": {
+-        "node": "^14.17.0 || ^16.13.0 || >=18.0.0"
++        "node": "^20.17.0 || >=22.9.0"
+       }
+     },
+     "node_modules/npm/node_modules/negotiator": {
+-      "version": "0.6.3",
++      "version": "1.0.0",
+       "inBundle": true,
+       "license": "MIT",
+       "engines": {
+@@ -23540,1307 +22987,577 @@
+       }
+     },
+     "node_modules/npm/node_modules/node-gyp": {
+-      "version": "9.4.1",
++      "version": "12.4.0",
+       "inBundle": true,
+       "license": "MIT",
+       "dependencies": {
+         "env-paths": "^2.2.0",
+         "exponential-backoff": "^3.1.1",
+-        "glob": "^7.1.4",
+         "graceful-fs": "^4.2.6",
+-        "make-fetch-happen": "^10.0.3",
+-        "nopt": "^6.0.0",
+-        "npmlog": "^6.0.0",
+-        "rimraf": "^3.0.2",
++        "nopt": "^9.0.0",
++        "proc-log": "^6.0.0",
+         "semver": "^7.3.5",
+-        "tar": "^6.1.2",
+-        "which": "^2.0.2"
++        "tar": "^7.5.4",
++        "tinyglobby": "^0.2.12",
++        "undici": "^6.25.0",
++        "which": "^6.0.0"
+       },
+       "bin": {
+         "node-gyp": "bin/node-gyp.js"
+       },
+       "engines": {
+-        "node": "^12.13 || ^14.13 || >=16"
++        "node": "^20.17.0 || >=22.9.0"
+       }
+     },
+-    "node_modules/npm/node_modules/node-gyp/node_modules/@npmcli/fs": {
+-      "version": "2.1.2",
++    "node_modules/npm/node_modules/nopt": {
++      "version": "9.0.0",
+       "inBundle": true,
+       "license": "ISC",
+       "dependencies": {
+-        "@gar/promisify": "^1.1.3",
+-        "semver": "^7.3.5"
++        "abbrev": "^4.0.0"
++      },
++      "bin": {
++        "nopt": "bin/nopt.js"
+       },
+       "engines": {
+-        "node": "^12.13.0 || ^14.15.0 || >=16.0.0"
++        "node": "^20.17.0 || >=22.9.0"
+       }
+     },
+-    "node_modules/npm/node_modules/node-gyp/node_modules/abbrev": {
+-      "version": "1.1.1",
+-      "inBundle": true,
+-      "license": "ISC"
+-    },
+-    "node_modules/npm/node_modules/node-gyp/node_modules/are-we-there-yet": {
+-      "version": "3.0.1",
++    "node_modules/npm/node_modules/npm-audit-report": {
++      "version": "7.0.0",
+       "inBundle": true,
+       "license": "ISC",
+-      "dependencies": {
+-        "delegates": "^1.0.0",
+-        "readable-stream": "^3.6.0"
+-      },
+       "engines": {
+-        "node": "^12.13.0 || ^14.15.0 || >=16.0.0"
+-      }
+-    },
+-    "node_modules/npm/node_modules/node-gyp/node_modules/brace-expansion": {
+-      "version": "1.1.11",
+-      "inBundle": true,
+-      "license": "MIT",
+-      "dependencies": {
+-        "balanced-match": "^1.0.0",
+-        "concat-map": "0.0.1"
++        "node": "^20.17.0 || >=22.9.0"
+       }
+     },
+-    "node_modules/npm/node_modules/node-gyp/node_modules/cacache": {
+-      "version": "16.1.3",
++    "node_modules/npm/node_modules/npm-bundled": {
++      "version": "5.0.0",
+       "inBundle": true,
+       "license": "ISC",
+       "dependencies": {
+-        "@npmcli/fs": "^2.1.0",
+-        "@npmcli/move-file": "^2.0.0",
+-        "chownr": "^2.0.0",
+-        "fs-minipass": "^2.1.0",
+-        "glob": "^8.0.1",
+-        "infer-owner": "^1.0.4",
+-        "lru-cache": "^7.7.1",
+-        "minipass": "^3.1.6",
+-        "minipass-collect": "^1.0.2",
+-        "minipass-flush": "^1.0.5",
+-        "minipass-pipeline": "^1.2.4",
+-        "mkdirp": "^1.0.4",
+-        "p-map": "^4.0.0",
+-        "promise-inflight": "^1.0.1",
+-        "rimraf": "^3.0.2",
+-        "ssri": "^9.0.0",
+-        "tar": "^6.1.11",
+-        "unique-filename": "^2.0.0"
++        "npm-normalize-package-bin": "^5.0.0"
+       },
+       "engines": {
+-        "node": "^12.13.0 || ^14.15.0 || >=16.0.0"
+-      }
+-    },
+-    "node_modules/npm/node_modules/node-gyp/node_modules/cacache/node_modules/brace-expansion": {
+-      "version": "2.0.1",
+-      "inBundle": true,
+-      "license": "MIT",
+-      "dependencies": {
+-        "balanced-match": "^1.0.0"
++        "node": "^20.17.0 || >=22.9.0"
+       }
+     },
+-    "node_modules/npm/node_modules/node-gyp/node_modules/cacache/node_modules/glob": {
+-      "version": "8.1.0",
++    "node_modules/npm/node_modules/npm-install-checks": {
++      "version": "8.0.0",
+       "inBundle": true,
+-      "license": "ISC",
++      "license": "BSD-2-Clause",
+       "dependencies": {
+-        "fs.realpath": "^1.0.0",
+-        "inflight": "^1.0.4",
+-        "inherits": "2",
+-        "minimatch": "^5.0.1",
+-        "once": "^1.3.0"
++        "semver": "^7.1.1"
+       },
+       "engines": {
+-        "node": ">=12"
+-      },
+-      "funding": {
+-        "url": "https://github.com/sponsors/isaacs"
++        "node": "^20.17.0 || >=22.9.0"
+       }
+     },
+-    "node_modules/npm/node_modules/node-gyp/node_modules/cacache/node_modules/minimatch": {
+-      "version": "5.1.6",
++    "node_modules/npm/node_modules/npm-normalize-package-bin": {
++      "version": "5.0.0",
+       "inBundle": true,
+       "license": "ISC",
+-      "dependencies": {
+-        "brace-expansion": "^2.0.1"
+-      },
+       "engines": {
+-        "node": ">=10"
++        "node": "^20.17.0 || >=22.9.0"
+       }
+     },
+-    "node_modules/npm/node_modules/node-gyp/node_modules/fs-minipass": {
+-      "version": "2.1.0",
++    "node_modules/npm/node_modules/npm-package-arg": {
++      "version": "13.0.2",
+       "inBundle": true,
+       "license": "ISC",
+       "dependencies": {
+-        "minipass": "^3.0.0"
++        "hosted-git-info": "^9.0.0",
++        "proc-log": "^6.0.0",
++        "semver": "^7.3.5",
++        "validate-npm-package-name": "^7.0.0"
+       },
+       "engines": {
+-        "node": ">= 8"
++        "node": "^20.17.0 || >=22.9.0"
+       }
+     },
+-    "node_modules/npm/node_modules/node-gyp/node_modules/gauge": {
+-      "version": "4.0.4",
++    "node_modules/npm/node_modules/npm-packlist": {
++      "version": "10.0.4",
+       "inBundle": true,
+       "license": "ISC",
+       "dependencies": {
+-        "aproba": "^1.0.3 || ^2.0.0",
+-        "color-support": "^1.1.3",
+-        "console-control-strings": "^1.1.0",
+-        "has-unicode": "^2.0.1",
+-        "signal-exit": "^3.0.7",
+-        "string-width": "^4.2.3",
+-        "strip-ansi": "^6.0.1",
+-        "wide-align": "^1.1.5"
++        "ignore-walk": "^8.0.0",
++        "proc-log": "^6.0.0"
+       },
+       "engines": {
+-        "node": "^12.13.0 || ^14.15.0 || >=16.0.0"
++        "node": "^20.17.0 || >=22.9.0"
+       }
+     },
+-    "node_modules/npm/node_modules/node-gyp/node_modules/glob": {
+-      "version": "7.2.3",
++    "node_modules/npm/node_modules/npm-pick-manifest": {
++      "version": "11.0.3",
+       "inBundle": true,
+       "license": "ISC",
+       "dependencies": {
+-        "fs.realpath": "^1.0.0",
+-        "inflight": "^1.0.4",
+-        "inherits": "2",
+-        "minimatch": "^3.1.1",
+-        "once": "^1.3.0",
+-        "path-is-absolute": "^1.0.0"
++        "npm-install-checks": "^8.0.0",
++        "npm-normalize-package-bin": "^5.0.0",
++        "npm-package-arg": "^13.0.0",
++        "semver": "^7.3.5"
+       },
+       "engines": {
+-        "node": "*"
+-      },
+-      "funding": {
+-        "url": "https://github.com/sponsors/isaacs"
++        "node": "^20.17.0 || >=22.9.0"
+       }
+     },
+-    "node_modules/npm/node_modules/node-gyp/node_modules/make-fetch-happen": {
+-      "version": "10.2.1",
++    "node_modules/npm/node_modules/npm-profile": {
++      "version": "12.0.2",
+       "inBundle": true,
+       "license": "ISC",
+       "dependencies": {
+-        "agentkeepalive": "^4.2.1",
+-        "cacache": "^16.1.0",
+-        "http-cache-semantics": "^4.1.0",
+-        "http-proxy-agent": "^5.0.0",
+-        "https-proxy-agent": "^5.0.0",
+-        "is-lambda": "^1.0.1",
+-        "lru-cache": "^7.7.1",
+-        "minipass": "^3.1.6",
+-        "minipass-collect": "^1.0.2",
+-        "minipass-fetch": "^2.0.3",
+-        "minipass-flush": "^1.0.5",
+-        "minipass-pipeline": "^1.2.4",
+-        "negotiator": "^0.6.3",
+-        "promise-retry": "^2.0.1",
+-        "socks-proxy-agent": "^7.0.0",
+-        "ssri": "^9.0.0"
++        "npm-registry-fetch": "^19.0.0",
++        "proc-log": "^6.1.0"
+       },
+       "engines": {
+-        "node": "^12.13.0 || ^14.15.0 || >=16.0.0"
++        "node": "^20.17.0 || >=22.9.0"
+       }
+     },
+-    "node_modules/npm/node_modules/node-gyp/node_modules/minimatch": {
+-      "version": "3.1.2",
++    "node_modules/npm/node_modules/npm-registry-fetch": {
++      "version": "19.1.1",
+       "inBundle": true,
+       "license": "ISC",
+       "dependencies": {
+-        "brace-expansion": "^1.1.7"
++        "@npmcli/redact": "^4.0.0",
++        "jsonparse": "^1.3.1",
++        "make-fetch-happen": "^15.0.0",
++        "minipass": "^7.0.2",
++        "minipass-fetch": "^5.0.0",
++        "minizlib": "^3.0.1",
++        "npm-package-arg": "^13.0.0",
++        "proc-log": "^6.0.0"
+       },
+       "engines": {
+-        "node": "*"
++        "node": "^20.17.0 || >=22.9.0"
+       }
+     },
+-    "node_modules/npm/node_modules/node-gyp/node_modules/minipass": {
+-      "version": "3.3.6",
++    "node_modules/npm/node_modules/npm-user-validate": {
++      "version": "4.0.0",
+       "inBundle": true,
+-      "license": "ISC",
+-      "dependencies": {
+-        "yallist": "^4.0.0"
+-      },
++      "license": "BSD-2-Clause",
+       "engines": {
+-        "node": ">=8"
++        "node": "^20.17.0 || >=22.9.0"
+       }
+     },
+-    "node_modules/npm/node_modules/node-gyp/node_modules/minipass-fetch": {
+-      "version": "2.1.2",
++    "node_modules/npm/node_modules/p-map": {
++      "version": "7.0.4",
+       "inBundle": true,
+       "license": "MIT",
+-      "dependencies": {
+-        "minipass": "^3.1.6",
+-        "minipass-sized": "^1.0.3",
+-        "minizlib": "^2.1.2"
+-      },
+       "engines": {
+-        "node": "^12.13.0 || ^14.15.0 || >=16.0.0"
++        "node": ">=18"
+       },
+-      "optionalDependencies": {
+-        "encoding": "^0.1.13"
++      "funding": {
++        "url": "https://github.com/sponsors/sindresorhus"
+       }
+     },
+-    "node_modules/npm/node_modules/node-gyp/node_modules/nopt": {
+-      "version": "6.0.0",
++    "node_modules/npm/node_modules/pacote": {
++      "version": "21.5.1",
+       "inBundle": true,
+       "license": "ISC",
+       "dependencies": {
+-        "abbrev": "^1.0.0"
++        "@gar/promise-retry": "^1.0.0",
++        "@npmcli/git": "^7.0.0",
++        "@npmcli/installed-package-contents": "^4.0.0",
++        "@npmcli/package-json": "^7.0.0",
++        "@npmcli/promise-spawn": "^9.0.0",
++        "@npmcli/run-script": "^10.0.0",
++        "cacache": "^20.0.0",
++        "fs-minipass": "^3.0.0",
++        "minipass": "^7.0.2",
++        "npm-package-arg": "^13.0.0",
++        "npm-packlist": "^10.0.1",
++        "npm-pick-manifest": "^11.0.1",
++        "npm-registry-fetch": "^19.0.0",
++        "proc-log": "^6.0.0",
++        "sigstore": "^4.0.0",
++        "ssri": "^13.0.0",
++        "tar": "^7.4.3"
+       },
+       "bin": {
+-        "nopt": "bin/nopt.js"
+-      },
+-      "engines": {
+-        "node": "^12.13.0 || ^14.15.0 || >=16.0.0"
+-      }
+-    },
+-    "node_modules/npm/node_modules/node-gyp/node_modules/npmlog": {
+-      "version": "6.0.2",
+-      "inBundle": true,
+-      "license": "ISC",
+-      "dependencies": {
+-        "are-we-there-yet": "^3.0.0",
+-        "console-control-strings": "^1.1.0",
+-        "gauge": "^4.0.3",
+-        "set-blocking": "^2.0.0"
+-      },
+-      "engines": {
+-        "node": "^12.13.0 || ^14.15.0 || >=16.0.0"
+-      }
+-    },
+-    "node_modules/npm/node_modules/node-gyp/node_modules/signal-exit": {
+-      "version": "3.0.7",
+-      "inBundle": true,
+-      "license": "ISC"
+-    },
+-    "node_modules/npm/node_modules/node-gyp/node_modules/ssri": {
+-      "version": "9.0.1",
+-      "inBundle": true,
+-      "license": "ISC",
+-      "dependencies": {
+-        "minipass": "^3.1.1"
+-      },
+-      "engines": {
+-        "node": "^12.13.0 || ^14.15.0 || >=16.0.0"
+-      }
+-    },
+-    "node_modules/npm/node_modules/node-gyp/node_modules/unique-filename": {
+-      "version": "2.0.1",
+-      "inBundle": true,
+-      "license": "ISC",
+-      "dependencies": {
+-        "unique-slug": "^3.0.0"
++        "pacote": "bin/index.js"
+       },
+       "engines": {
+-        "node": "^12.13.0 || ^14.15.0 || >=16.0.0"
++        "node": "^20.17.0 || >=22.9.0"
+       }
+     },
+-    "node_modules/npm/node_modules/node-gyp/node_modules/unique-slug": {
+-      "version": "3.0.0",
++    "node_modules/npm/node_modules/parse-conflict-json": {
++      "version": "5.0.1",
+       "inBundle": true,
+       "license": "ISC",
+       "dependencies": {
+-        "imurmurhash": "^0.1.4"
++        "json-parse-even-better-errors": "^5.0.0",
++        "just-diff": "^6.0.0",
++        "just-diff-apply": "^5.2.0"
+       },
+       "engines": {
+-        "node": "^12.13.0 || ^14.15.0 || >=16.0.0"
++        "node": "^20.17.0 || >=22.9.0"
+       }
+     },
+-    "node_modules/npm/node_modules/node-gyp/node_modules/which": {
++    "node_modules/npm/node_modules/path-scurry": {
+       "version": "2.0.2",
+       "inBundle": true,
+-      "license": "ISC",
+-      "dependencies": {
+-        "isexe": "^2.0.0"
+-      },
+-      "bin": {
+-        "node-which": "bin/node-which"
+-      },
+-      "engines": {
+-        "node": ">= 8"
+-      }
+-    },
+-    "node_modules/npm/node_modules/nopt": {
+-      "version": "7.2.0",
+-      "inBundle": true,
+-      "license": "ISC",
+-      "dependencies": {
+-        "abbrev": "^2.0.0"
+-      },
+-      "bin": {
+-        "nopt": "bin/nopt.js"
+-      },
+-      "engines": {
+-        "node": "^14.17.0 || ^16.13.0 || >=18.0.0"
+-      }
+-    },
+-    "node_modules/npm/node_modules/normalize-package-data": {
+-      "version": "5.0.0",
+-      "inBundle": true,
+-      "license": "BSD-2-Clause",
+-      "dependencies": {
+-        "hosted-git-info": "^6.0.0",
+-        "is-core-module": "^2.8.1",
+-        "semver": "^7.3.5",
+-        "validate-npm-package-license": "^3.0.4"
+-      },
+-      "engines": {
+-        "node": "^14.17.0 || ^16.13.0 || >=18.0.0"
+-      }
+-    },
+-    "node_modules/npm/node_modules/npm-audit-report": {
+-      "version": "5.0.0",
+-      "inBundle": true,
+-      "license": "ISC",
+-      "engines": {
+-        "node": "^14.17.0 || ^16.13.0 || >=18.0.0"
+-      }
+-    },
+-    "node_modules/npm/node_modules/npm-bundled": {
+-      "version": "3.0.0",
+-      "inBundle": true,
+-      "license": "ISC",
+-      "dependencies": {
+-        "npm-normalize-package-bin": "^3.0.0"
+-      },
+-      "engines": {
+-        "node": "^14.17.0 || ^16.13.0 || >=18.0.0"
+-      }
+-    },
+-    "node_modules/npm/node_modules/npm-install-checks": {
+-      "version": "6.3.0",
+-      "inBundle": true,
+-      "license": "BSD-2-Clause",
++      "license": "BlueOak-1.0.0",
+       "dependencies": {
+-        "semver": "^7.1.1"
++        "lru-cache": "^11.0.0",
++        "minipass": "^7.1.2"
+       },
+       "engines": {
+-        "node": "^14.17.0 || ^16.13.0 || >=18.0.0"
+-      }
+-    },
+-    "node_modules/npm/node_modules/npm-normalize-package-bin": {
+-      "version": "3.0.1",
+-      "inBundle": true,
+-      "license": "ISC",
+-      "engines": {
+-        "node": "^14.17.0 || ^16.13.0 || >=18.0.0"
+-      }
+-    },
+-    "node_modules/npm/node_modules/npm-package-arg": {
+-      "version": "10.1.0",
+-      "inBundle": true,
+-      "license": "ISC",
+-      "dependencies": {
+-        "hosted-git-info": "^6.0.0",
+-        "proc-log": "^3.0.0",
+-        "semver": "^7.3.5",
+-        "validate-npm-package-name": "^5.0.0"
++        "node": "18 || 20 || >=22"
+       },
+-      "engines": {
+-        "node": "^14.17.0 || ^16.13.0 || >=18.0.0"
++      "funding": {
++        "url": "https://github.com/sponsors/isaacs"
+       }
+     },
+-    "node_modules/npm/node_modules/npm-packlist": {
+-      "version": "7.0.4",
++    "node_modules/npm/node_modules/postcss-selector-parser": {
++      "version": "7.1.4",
+       "inBundle": true,
+-      "license": "ISC",
++      "license": "MIT",
+       "dependencies": {
+-        "ignore-walk": "^6.0.0"
++        "cssesc": "^3.0.0",
++        "util-deprecate": "^1.0.2"
+       },
+       "engines": {
+-        "node": "^14.17.0 || ^16.13.0 || >=18.0.0"
++        "node": ">=4"
+       }
+     },
+-    "node_modules/npm/node_modules/npm-pick-manifest": {
+-      "version": "8.0.2",
++    "node_modules/npm/node_modules/proc-log": {
++      "version": "6.1.0",
+       "inBundle": true,
+       "license": "ISC",
+-      "dependencies": {
+-        "npm-install-checks": "^6.0.0",
+-        "npm-normalize-package-bin": "^3.0.0",
+-        "npm-package-arg": "^10.0.0",
+-        "semver": "^7.3.5"
+-      },
+       "engines": {
+-        "node": "^14.17.0 || ^16.13.0 || >=18.0.0"
++        "node": "^20.17.0 || >=22.9.0"
+       }
+     },
+-    "node_modules/npm/node_modules/npm-profile": {
+-      "version": "7.0.1",
++    "node_modules/npm/node_modules/proggy": {
++      "version": "4.0.0",
+       "inBundle": true,
+       "license": "ISC",
+-      "dependencies": {
+-        "npm-registry-fetch": "^14.0.0",
+-        "proc-log": "^3.0.0"
+-      },
+       "engines": {
+-        "node": "^14.17.0 || ^16.13.0 || >=18.0.0"
++        "node": "^20.17.0 || >=22.9.0"
+       }
+     },
+-    "node_modules/npm/node_modules/npm-registry-fetch": {
+-      "version": "14.0.5",
++    "node_modules/npm/node_modules/promise-all-reject-late": {
++      "version": "1.0.1",
+       "inBundle": true,
+       "license": "ISC",
+-      "dependencies": {
+-        "make-fetch-happen": "^11.0.0",
+-        "minipass": "^5.0.0",
+-        "minipass-fetch": "^3.0.0",
+-        "minipass-json-stream": "^1.0.1",
+-        "minizlib": "^2.1.2",
+-        "npm-package-arg": "^10.0.0",
+-        "proc-log": "^3.0.0"
+-      },
+-      "engines": {
+-        "node": "^14.17.0 || ^16.13.0 || >=18.0.0"
++      "funding": {
++        "url": "https://github.com/sponsors/isaacs"
+       }
+     },
+-    "node_modules/npm/node_modules/npm-registry-fetch/node_modules/minipass": {
+-      "version": "5.0.0",
++    "node_modules/npm/node_modules/promise-call-limit": {
++      "version": "3.0.2",
+       "inBundle": true,
+       "license": "ISC",
+-      "engines": {
+-        "node": ">=8"
+-      }
+-    },
+-    "node_modules/npm/node_modules/npm-user-validate": {
+-      "version": "2.0.0",
+-      "inBundle": true,
+-      "license": "BSD-2-Clause",
+-      "engines": {
+-        "node": "^14.17.0 || ^16.13.0 || >=18.0.0"
+-      }
+-    },
+-    "node_modules/npm/node_modules/npmlog": {
+-      "version": "7.0.1",
+-      "inBundle": true,
+-      "license": "ISC",
+-      "dependencies": {
+-        "are-we-there-yet": "^4.0.0",
+-        "console-control-strings": "^1.1.0",
+-        "gauge": "^5.0.0",
+-        "set-blocking": "^2.0.0"
+-      },
+-      "engines": {
+-        "node": "^14.17.0 || ^16.13.0 || >=18.0.0"
+-      }
+-    },
+-    "node_modules/npm/node_modules/once": {
+-      "version": "1.4.0",
+-      "inBundle": true,
+-      "license": "ISC",
+-      "dependencies": {
+-        "wrappy": "1"
+-      }
+-    },
+-    "node_modules/npm/node_modules/p-map": {
+-      "version": "4.0.0",
+-      "inBundle": true,
+-      "license": "MIT",
+-      "dependencies": {
+-        "aggregate-error": "^3.0.0"
+-      },
+-      "engines": {
+-        "node": ">=10"
+-      },
+-      "funding": {
+-        "url": "https://github.com/sponsors/sindresorhus"
+-      }
+-    },
+-    "node_modules/npm/node_modules/pacote": {
+-      "version": "15.2.0",
+-      "inBundle": true,
+-      "license": "ISC",
+-      "dependencies": {
+-        "@npmcli/git": "^4.0.0",
+-        "@npmcli/installed-package-contents": "^2.0.1",
+-        "@npmcli/promise-spawn": "^6.0.1",
+-        "@npmcli/run-script": "^6.0.0",
+-        "cacache": "^17.0.0",
+-        "fs-minipass": "^3.0.0",
+-        "minipass": "^5.0.0",
+-        "npm-package-arg": "^10.0.0",
+-        "npm-packlist": "^7.0.0",
+-        "npm-pick-manifest": "^8.0.0",
+-        "npm-registry-fetch": "^14.0.0",
+-        "proc-log": "^3.0.0",
+-        "promise-retry": "^2.0.1",
+-        "read-package-json": "^6.0.0",
+-        "read-package-json-fast": "^3.0.0",
+-        "sigstore": "^1.3.0",
+-        "ssri": "^10.0.0",
+-        "tar": "^6.1.11"
+-      },
+-      "bin": {
+-        "pacote": "lib/bin.js"
+-      },
+-      "engines": {
+-        "node": "^14.17.0 || ^16.13.0 || >=18.0.0"
+-      }
+-    },
+-    "node_modules/npm/node_modules/pacote/node_modules/minipass": {
+-      "version": "5.0.0",
+-      "inBundle": true,
+-      "license": "ISC",
+-      "engines": {
+-        "node": ">=8"
+-      }
+-    },
+-    "node_modules/npm/node_modules/parse-conflict-json": {
+-      "version": "3.0.1",
+-      "inBundle": true,
+-      "license": "ISC",
+-      "dependencies": {
+-        "json-parse-even-better-errors": "^3.0.0",
+-        "just-diff": "^6.0.0",
+-        "just-diff-apply": "^5.2.0"
+-      },
+-      "engines": {
+-        "node": "^14.17.0 || ^16.13.0 || >=18.0.0"
+-      }
+-    },
+-    "node_modules/npm/node_modules/path-is-absolute": {
+-      "version": "1.0.1",
+-      "inBundle": true,
+-      "license": "MIT",
+-      "engines": {
+-        "node": ">=0.10.0"
+-      }
+-    },
+-    "node_modules/npm/node_modules/path-key": {
+-      "version": "3.1.1",
+-      "inBundle": true,
+-      "license": "MIT",
+-      "engines": {
+-        "node": ">=8"
+-      }
+-    },
+-    "node_modules/npm/node_modules/path-scurry": {
+-      "version": "1.10.1",
+-      "inBundle": true,
+-      "license": "BlueOak-1.0.0",
+-      "dependencies": {
+-        "lru-cache": "^9.1.1 || ^10.0.0",
+-        "minipass": "^5.0.0 || ^6.0.2 || ^7.0.0"
+-      },
+-      "engines": {
+-        "node": ">=16 || 14 >=14.17"
+-      },
+-      "funding": {
+-        "url": "https://github.com/sponsors/isaacs"
+-      }
+-    },
+-    "node_modules/npm/node_modules/path-scurry/node_modules/lru-cache": {
+-      "version": "10.2.0",
+-      "inBundle": true,
+-      "license": "ISC",
+-      "engines": {
+-        "node": "14 || >=16.14"
+-      }
+-    },
+-    "node_modules/npm/node_modules/postcss-selector-parser": {
+-      "version": "6.0.15",
+-      "inBundle": true,
+-      "license": "MIT",
+-      "dependencies": {
+-        "cssesc": "^3.0.0",
+-        "util-deprecate": "^1.0.2"
+-      },
+-      "engines": {
+-        "node": ">=4"
+-      }
+-    },
+-    "node_modules/npm/node_modules/proc-log": {
+-      "version": "3.0.0",
+-      "inBundle": true,
+-      "license": "ISC",
+-      "engines": {
+-        "node": "^14.17.0 || ^16.13.0 || >=18.0.0"
+-      }
+-    },
+-    "node_modules/npm/node_modules/promise-all-reject-late": {
+-      "version": "1.0.1",
+-      "inBundle": true,
+-      "license": "ISC",
+-      "funding": {
+-        "url": "https://github.com/sponsors/isaacs"
+-      }
+-    },
+-    "node_modules/npm/node_modules/promise-call-limit": {
+-      "version": "1.0.2",
+-      "inBundle": true,
+-      "license": "ISC",
+-      "funding": {
+-        "url": "https://github.com/sponsors/isaacs"
+-      }
+-    },
+-    "node_modules/npm/node_modules/promise-inflight": {
+-      "version": "1.0.1",
+-      "inBundle": true,
+-      "license": "ISC"
+-    },
+-    "node_modules/npm/node_modules/promise-retry": {
+-      "version": "2.0.1",
+-      "inBundle": true,
+-      "license": "MIT",
+-      "dependencies": {
+-        "err-code": "^2.0.2",
+-        "retry": "^0.12.0"
+-      },
+-      "engines": {
+-        "node": ">=10"
++      "funding": {
++        "url": "https://github.com/sponsors/isaacs"
+       }
+     },
+     "node_modules/npm/node_modules/promzard": {
+-      "version": "1.0.0",
+-      "inBundle": true,
+-      "license": "ISC",
+-      "dependencies": {
+-        "read": "^2.0.0"
+-      },
+-      "engines": {
+-        "node": "^14.17.0 || ^16.13.0 || >=18.0.0"
+-      }
+-    },
+-    "node_modules/npm/node_modules/qrcode-terminal": {
+-      "version": "0.12.0",
+-      "inBundle": true,
+-      "bin": {
+-        "qrcode-terminal": "bin/qrcode-terminal.js"
+-      }
+-    },
+-    "node_modules/npm/node_modules/read": {
+-      "version": "2.1.0",
+-      "inBundle": true,
+-      "license": "ISC",
+-      "dependencies": {
+-        "mute-stream": "~1.0.0"
+-      },
+-      "engines": {
+-        "node": "^14.17.0 || ^16.13.0 || >=18.0.0"
+-      }
+-    },
+-    "node_modules/npm/node_modules/read-cmd-shim": {
+-      "version": "4.0.0",
+-      "inBundle": true,
+-      "license": "ISC",
+-      "engines": {
+-        "node": "^14.17.0 || ^16.13.0 || >=18.0.0"
+-      }
+-    },
+-    "node_modules/npm/node_modules/read-package-json": {
+-      "version": "6.0.4",
+-      "inBundle": true,
+-      "license": "ISC",
+-      "dependencies": {
+-        "glob": "^10.2.2",
+-        "json-parse-even-better-errors": "^3.0.0",
+-        "normalize-package-data": "^5.0.0",
+-        "npm-normalize-package-bin": "^3.0.0"
+-      },
+-      "engines": {
+-        "node": "^14.17.0 || ^16.13.0 || >=18.0.0"
+-      }
+-    },
+-    "node_modules/npm/node_modules/read-package-json-fast": {
+-      "version": "3.0.2",
+-      "inBundle": true,
+-      "license": "ISC",
+-      "dependencies": {
+-        "json-parse-even-better-errors": "^3.0.0",
+-        "npm-normalize-package-bin": "^3.0.0"
+-      },
+-      "engines": {
+-        "node": "^14.17.0 || ^16.13.0 || >=18.0.0"
+-      }
+-    },
+-    "node_modules/npm/node_modules/readable-stream": {
+-      "version": "3.6.2",
+-      "inBundle": true,
+-      "license": "MIT",
+-      "dependencies": {
+-        "inherits": "^2.0.3",
+-        "string_decoder": "^1.1.1",
+-        "util-deprecate": "^1.0.1"
+-      },
+-      "engines": {
+-        "node": ">= 6"
+-      }
+-    },
+-    "node_modules/npm/node_modules/retry": {
+-      "version": "0.12.0",
+-      "inBundle": true,
+-      "license": "MIT",
+-      "engines": {
+-        "node": ">= 4"
+-      }
+-    },
+-    "node_modules/npm/node_modules/rimraf": {
+-      "version": "3.0.2",
+-      "inBundle": true,
+-      "license": "ISC",
+-      "dependencies": {
+-        "glob": "^7.1.3"
+-      },
+-      "bin": {
+-        "rimraf": "bin.js"
+-      },
+-      "funding": {
+-        "url": "https://github.com/sponsors/isaacs"
+-      }
+-    },
+-    "node_modules/npm/node_modules/rimraf/node_modules/brace-expansion": {
+-      "version": "1.1.11",
+-      "inBundle": true,
+-      "license": "MIT",
+-      "dependencies": {
+-        "balanced-match": "^1.0.0",
+-        "concat-map": "0.0.1"
+-      }
+-    },
+-    "node_modules/npm/node_modules/rimraf/node_modules/glob": {
+-      "version": "7.2.3",
+-      "inBundle": true,
+-      "license": "ISC",
+-      "dependencies": {
+-        "fs.realpath": "^1.0.0",
+-        "inflight": "^1.0.4",
+-        "inherits": "2",
+-        "minimatch": "^3.1.1",
+-        "once": "^1.3.0",
+-        "path-is-absolute": "^1.0.0"
+-      },
+-      "engines": {
+-        "node": "*"
+-      },
+-      "funding": {
+-        "url": "https://github.com/sponsors/isaacs"
+-      }
+-    },
+-    "node_modules/npm/node_modules/rimraf/node_modules/minimatch": {
+-      "version": "3.1.2",
+-      "inBundle": true,
+-      "license": "ISC",
+-      "dependencies": {
+-        "brace-expansion": "^1.1.7"
+-      },
+-      "engines": {
+-        "node": "*"
+-      }
+-    },
+-    "node_modules/npm/node_modules/safe-buffer": {
+-      "version": "5.2.1",
+-      "funding": [
+-        {
+-          "type": "github",
+-          "url": "https://github.com/sponsors/feross"
+-        },
+-        {
+-          "type": "patreon",
+-          "url": "https://www.patreon.com/feross"
+-        },
+-        {
+-          "type": "consulting",
+-          "url": "https://feross.org/support"
+-        }
+-      ],
+-      "inBundle": true,
+-      "license": "MIT"
+-    },
+-    "node_modules/npm/node_modules/safer-buffer": {
+-      "version": "2.1.2",
+-      "inBundle": true,
+-      "license": "MIT",
+-      "optional": true
+-    },
+-    "node_modules/npm/node_modules/semver": {
+-      "version": "7.6.0",
+-      "inBundle": true,
+-      "license": "ISC",
+-      "dependencies": {
+-        "lru-cache": "^6.0.0"
+-      },
+-      "bin": {
+-        "semver": "bin/semver.js"
+-      },
+-      "engines": {
+-        "node": ">=10"
+-      }
+-    },
+-    "node_modules/npm/node_modules/semver/node_modules/lru-cache": {
+-      "version": "6.0.0",
+-      "inBundle": true,
+-      "license": "ISC",
+-      "dependencies": {
+-        "yallist": "^4.0.0"
+-      },
+-      "engines": {
+-        "node": ">=10"
+-      }
+-    },
+-    "node_modules/npm/node_modules/set-blocking": {
+-      "version": "2.0.0",
+-      "inBundle": true,
+-      "license": "ISC"
+-    },
+-    "node_modules/npm/node_modules/shebang-command": {
+-      "version": "2.0.0",
+-      "inBundle": true,
+-      "license": "MIT",
+-      "dependencies": {
+-        "shebang-regex": "^3.0.0"
+-      },
+-      "engines": {
+-        "node": ">=8"
+-      }
+-    },
+-    "node_modules/npm/node_modules/shebang-regex": {
+-      "version": "3.0.0",
+-      "inBundle": true,
+-      "license": "MIT",
+-      "engines": {
+-        "node": ">=8"
+-      }
+-    },
+-    "node_modules/npm/node_modules/signal-exit": {
+-      "version": "4.1.0",
+-      "inBundle": true,
+-      "license": "ISC",
+-      "engines": {
+-        "node": ">=14"
+-      },
+-      "funding": {
+-        "url": "https://github.com/sponsors/isaacs"
+-      }
+-    },
+-    "node_modules/npm/node_modules/sigstore": {
+-      "version": "1.9.0",
+-      "inBundle": true,
+-      "license": "Apache-2.0",
+-      "dependencies": {
+-        "@sigstore/bundle": "^1.1.0",
+-        "@sigstore/protobuf-specs": "^0.2.0",
+-        "@sigstore/sign": "^1.0.0",
+-        "@sigstore/tuf": "^1.0.3",
+-        "make-fetch-happen": "^11.0.1"
+-      },
+-      "bin": {
+-        "sigstore": "bin/sigstore.js"
+-      },
+-      "engines": {
+-        "node": "^14.17.0 || ^16.13.0 || >=18.0.0"
+-      }
+-    },
+-    "node_modules/npm/node_modules/smart-buffer": {
+-      "version": "4.2.0",
+-      "inBundle": true,
+-      "license": "MIT",
+-      "engines": {
+-        "node": ">= 6.0.0",
+-        "npm": ">= 3.0.0"
+-      }
+-    },
+-    "node_modules/npm/node_modules/socks": {
+-      "version": "2.8.1",
+-      "inBundle": true,
+-      "license": "MIT",
+-      "dependencies": {
+-        "ip-address": "^9.0.5",
+-        "smart-buffer": "^4.2.0"
+-      },
+-      "engines": {
+-        "node": ">= 10.0.0",
+-        "npm": ">= 3.0.0"
+-      }
+-    },
+-    "node_modules/npm/node_modules/socks-proxy-agent": {
+-      "version": "7.0.0",
+-      "inBundle": true,
+-      "license": "MIT",
+-      "dependencies": {
+-        "agent-base": "^6.0.2",
+-        "debug": "^4.3.3",
+-        "socks": "^2.6.2"
+-      },
+-      "engines": {
+-        "node": ">= 10"
+-      }
+-    },
+-    "node_modules/npm/node_modules/spdx-correct": {
+-      "version": "3.2.0",
+-      "inBundle": true,
+-      "license": "Apache-2.0",
+-      "dependencies": {
+-        "spdx-expression-parse": "^3.0.0",
+-        "spdx-license-ids": "^3.0.0"
+-      }
+-    },
+-    "node_modules/npm/node_modules/spdx-exceptions": {
+-      "version": "2.5.0",
+-      "inBundle": true,
+-      "license": "CC-BY-3.0"
+-    },
+-    "node_modules/npm/node_modules/spdx-expression-parse": {
+       "version": "3.0.1",
+       "inBundle": true,
+-      "license": "MIT",
+-      "dependencies": {
+-        "spdx-exceptions": "^2.1.0",
+-        "spdx-license-ids": "^3.0.0"
+-      }
+-    },
+-    "node_modules/npm/node_modules/spdx-license-ids": {
+-      "version": "3.0.17",
+-      "inBundle": true,
+-      "license": "CC0-1.0"
+-    },
+-    "node_modules/npm/node_modules/ssri": {
+-      "version": "10.0.5",
+-      "inBundle": true,
+-      "license": "ISC",
+-      "dependencies": {
+-        "minipass": "^7.0.3"
+-      },
+-      "engines": {
+-        "node": "^14.17.0 || ^16.13.0 || >=18.0.0"
+-      }
+-    },
+-    "node_modules/npm/node_modules/string_decoder": {
+-      "version": "1.3.0",
+-      "inBundle": true,
+-      "license": "MIT",
+-      "dependencies": {
+-        "safe-buffer": "~5.2.0"
+-      }
+-    },
+-    "node_modules/npm/node_modules/string-width": {
+-      "version": "4.2.3",
+-      "inBundle": true,
+-      "license": "MIT",
+-      "dependencies": {
+-        "emoji-regex": "^8.0.0",
+-        "is-fullwidth-code-point": "^3.0.0",
+-        "strip-ansi": "^6.0.1"
+-      },
+-      "engines": {
+-        "node": ">=8"
+-      }
+-    },
+-    "node_modules/npm/node_modules/string-width-cjs": {
+-      "name": "string-width",
+-      "version": "4.2.3",
+-      "inBundle": true,
+-      "license": "MIT",
+-      "dependencies": {
+-        "emoji-regex": "^8.0.0",
+-        "is-fullwidth-code-point": "^3.0.0",
+-        "strip-ansi": "^6.0.1"
+-      },
+-      "engines": {
+-        "node": ">=8"
+-      }
+-    },
+-    "node_modules/npm/node_modules/strip-ansi": {
+-      "version": "6.0.1",
+-      "inBundle": true,
+-      "license": "MIT",
+-      "dependencies": {
+-        "ansi-regex": "^5.0.1"
+-      },
+-      "engines": {
+-        "node": ">=8"
+-      }
+-    },
+-    "node_modules/npm/node_modules/strip-ansi-cjs": {
+-      "name": "strip-ansi",
+-      "version": "6.0.1",
+-      "inBundle": true,
+-      "license": "MIT",
+-      "dependencies": {
+-        "ansi-regex": "^5.0.1"
+-      },
+-      "engines": {
+-        "node": ">=8"
+-      }
+-    },
+-    "node_modules/npm/node_modules/supports-color": {
+-      "version": "9.4.0",
+-      "inBundle": true,
+-      "license": "MIT",
+-      "engines": {
+-        "node": ">=12"
+-      },
+-      "funding": {
+-        "url": "https://github.com/chalk/supports-color?sponsor=1"
+-      }
+-    },
+-    "node_modules/npm/node_modules/tar": {
+-      "version": "6.2.1",
+-      "inBundle": true,
+       "license": "ISC",
+       "dependencies": {
+-        "chownr": "^2.0.0",
+-        "fs-minipass": "^2.0.0",
+-        "minipass": "^5.0.0",
+-        "minizlib": "^2.1.1",
+-        "mkdirp": "^1.0.3",
+-        "yallist": "^4.0.0"
++        "read": "^5.0.0"
+       },
+       "engines": {
+-        "node": ">=10"
++        "node": "^20.17.0 || >=22.9.0"
+       }
+     },
+-    "node_modules/npm/node_modules/tar/node_modules/fs-minipass": {
+-      "version": "2.1.0",
++    "node_modules/npm/node_modules/qrcode-terminal": {
++      "version": "0.12.0",
+       "inBundle": true,
+-      "license": "ISC",
+-      "dependencies": {
+-        "minipass": "^3.0.0"
+-      },
+-      "engines": {
+-        "node": ">= 8"
++      "bin": {
++        "qrcode-terminal": "bin/qrcode-terminal.js"
+       }
+     },
+-    "node_modules/npm/node_modules/tar/node_modules/fs-minipass/node_modules/minipass": {
+-      "version": "3.3.6",
++    "node_modules/npm/node_modules/read": {
++      "version": "5.0.1",
+       "inBundle": true,
+       "license": "ISC",
+       "dependencies": {
+-        "yallist": "^4.0.0"
++        "mute-stream": "^3.0.0"
+       },
+       "engines": {
+-        "node": ">=8"
++        "node": "^20.17.0 || >=22.9.0"
+       }
+     },
+-    "node_modules/npm/node_modules/tar/node_modules/minipass": {
+-      "version": "5.0.0",
++    "node_modules/npm/node_modules/read-cmd-shim": {
++      "version": "6.0.0",
+       "inBundle": true,
+       "license": "ISC",
+       "engines": {
+-        "node": ">=8"
++        "node": "^20.17.0 || >=22.9.0"
+       }
+     },
+-    "node_modules/npm/node_modules/text-table": {
+-      "version": "0.2.0",
+-      "inBundle": true,
+-      "license": "MIT"
+-    },
+-    "node_modules/npm/node_modules/tiny-relative-date": {
+-      "version": "1.3.0",
++    "node_modules/npm/node_modules/safer-buffer": {
++      "version": "2.1.2",
+       "inBundle": true,
+-      "license": "MIT"
++      "license": "MIT",
++      "optional": true
+     },
+-    "node_modules/npm/node_modules/treeverse": {
+-      "version": "3.0.0",
++    "node_modules/npm/node_modules/semver": {
++      "version": "7.8.5",
+       "inBundle": true,
+       "license": "ISC",
+-      "engines": {
+-        "node": "^14.17.0 || ^16.13.0 || >=18.0.0"
+-      }
+-    },
+-    "node_modules/npm/node_modules/tuf-js": {
+-      "version": "1.1.7",
+-      "inBundle": true,
+-      "license": "MIT",
+-      "dependencies": {
+-        "@tufjs/models": "1.0.4",
+-        "debug": "^4.3.4",
+-        "make-fetch-happen": "^11.1.1"
++      "bin": {
++        "semver": "bin/semver.js"
+       },
+       "engines": {
+-        "node": "^14.17.0 || ^16.13.0 || >=18.0.0"
++        "node": ">=10"
+       }
+     },
+-    "node_modules/npm/node_modules/unique-filename": {
+-      "version": "3.0.0",
++    "node_modules/npm/node_modules/signal-exit": {
++      "version": "4.1.0",
+       "inBundle": true,
+       "license": "ISC",
+-      "dependencies": {
+-        "unique-slug": "^4.0.0"
+-      },
+       "engines": {
+-        "node": "^14.17.0 || ^16.13.0 || >=18.0.0"
++        "node": ">=14"
++      },
++      "funding": {
++        "url": "https://github.com/sponsors/isaacs"
+       }
+     },
+-    "node_modules/npm/node_modules/unique-slug": {
+-      "version": "4.0.0",
++    "node_modules/npm/node_modules/sigstore": {
++      "version": "4.1.1",
+       "inBundle": true,
+-      "license": "ISC",
++      "license": "Apache-2.0",
+       "dependencies": {
+-        "imurmurhash": "^0.1.4"
++        "@sigstore/bundle": "^4.0.0",
++        "@sigstore/core": "^3.2.1",
++        "@sigstore/protobuf-specs": "^0.5.0",
++        "@sigstore/sign": "^4.1.1",
++        "@sigstore/tuf": "^4.0.2",
++        "@sigstore/verify": "^3.1.1"
+       },
+       "engines": {
+-        "node": "^14.17.0 || ^16.13.0 || >=18.0.0"
++        "node": "^20.17.0 || >=22.9.0"
+       }
+     },
+-    "node_modules/npm/node_modules/util-deprecate": {
+-      "version": "1.0.2",
++    "node_modules/npm/node_modules/smart-buffer": {
++      "version": "4.2.0",
+       "inBundle": true,
+-      "license": "MIT"
++      "license": "MIT",
++      "engines": {
++        "node": ">= 6.0.0",
++        "npm": ">= 3.0.0"
++      }
+     },
+-    "node_modules/npm/node_modules/validate-npm-package-license": {
+-      "version": "3.0.4",
++    "node_modules/npm/node_modules/socks": {
++      "version": "2.8.9",
+       "inBundle": true,
+-      "license": "Apache-2.0",
++      "license": "MIT",
+       "dependencies": {
+-        "spdx-correct": "^3.0.0",
+-        "spdx-expression-parse": "^3.0.0"
++        "ip-address": "^10.1.1",
++        "smart-buffer": "^4.2.0"
++      },
++      "engines": {
++        "node": ">= 10.0.0",
++        "npm": ">= 3.0.0"
+       }
+     },
+-    "node_modules/npm/node_modules/validate-npm-package-name": {
+-      "version": "5.0.0",
++    "node_modules/npm/node_modules/socks-proxy-agent": {
++      "version": "8.0.5",
+       "inBundle": true,
+-      "license": "ISC",
++      "license": "MIT",
+       "dependencies": {
+-        "builtins": "^5.0.0"
++        "agent-base": "^7.1.2",
++        "debug": "^4.3.4",
++        "socks": "^2.8.3"
+       },
+       "engines": {
+-        "node": "^14.17.0 || ^16.13.0 || >=18.0.0"
++        "node": ">= 14"
+       }
+     },
+-    "node_modules/npm/node_modules/walk-up-path": {
+-      "version": "3.0.1",
++    "node_modules/npm/node_modules/spdx-exceptions": {
++      "version": "2.5.0",
+       "inBundle": true,
+-      "license": "ISC"
++      "license": "CC-BY-3.0"
+     },
+-    "node_modules/npm/node_modules/wcwidth": {
+-      "version": "1.0.1",
++    "node_modules/npm/node_modules/spdx-expression-parse": {
++      "version": "4.0.0",
+       "inBundle": true,
+       "license": "MIT",
+       "dependencies": {
+-        "defaults": "^1.0.3"
++        "spdx-exceptions": "^2.1.0",
++        "spdx-license-ids": "^3.0.0"
+       }
+     },
+-    "node_modules/npm/node_modules/which": {
+-      "version": "3.0.1",
++    "node_modules/npm/node_modules/spdx-license-ids": {
++      "version": "3.0.23",
++      "inBundle": true,
++      "license": "CC0-1.0"
++    },
++    "node_modules/npm/node_modules/ssri": {
++      "version": "13.0.1",
+       "inBundle": true,
+       "license": "ISC",
+       "dependencies": {
+-        "isexe": "^2.0.0"
+-      },
+-      "bin": {
+-        "node-which": "bin/which.js"
++        "minipass": "^7.0.3"
+       },
+       "engines": {
+-        "node": "^14.17.0 || ^16.13.0 || >=18.0.0"
++        "node": "^20.17.0 || >=22.9.0"
+       }
+     },
+-    "node_modules/npm/node_modules/wide-align": {
+-      "version": "1.1.5",
++    "node_modules/npm/node_modules/supports-color": {
++      "version": "10.2.2",
+       "inBundle": true,
+-      "license": "ISC",
+-      "dependencies": {
+-        "string-width": "^1.0.2 || 2 || 3 || 4"
++      "license": "MIT",
++      "engines": {
++        "node": ">=18"
++      },
++      "funding": {
++        "url": "https://github.com/chalk/supports-color?sponsor=1"
+       }
+     },
+-    "node_modules/npm/node_modules/wrap-ansi": {
+-      "version": "8.1.0",
++    "node_modules/npm/node_modules/tar": {
++      "version": "7.5.22",
+       "inBundle": true,
+-      "license": "MIT",
++      "license": "BlueOak-1.0.0",
+       "dependencies": {
+-        "ansi-styles": "^6.1.0",
+-        "string-width": "^5.0.1",
+-        "strip-ansi": "^7.0.1"
++        "@isaacs/fs-minipass": "^4.0.0",
++        "chownr": "^3.0.0",
++        "minipass": "^7.1.2",
++        "minizlib": "^3.1.0",
++        "yallist": "^5.0.0"
+       },
+       "engines": {
+-        "node": ">=12"
+-      },
+-      "funding": {
+-        "url": "https://github.com/chalk/wrap-ansi?sponsor=1"
++        "node": ">=18"
+       }
+     },
+-    "node_modules/npm/node_modules/wrap-ansi-cjs": {
+-      "name": "wrap-ansi",
+-      "version": "7.0.0",
++    "node_modules/npm/node_modules/text-table": {
++      "version": "0.2.0",
++      "inBundle": true,
++      "license": "MIT"
++    },
++    "node_modules/npm/node_modules/tiny-relative-date": {
++      "version": "2.0.2",
++      "inBundle": true,
++      "license": "MIT"
++    },
++    "node_modules/npm/node_modules/tinyglobby": {
++      "version": "0.2.17",
+       "inBundle": true,
+       "license": "MIT",
+       "dependencies": {
+-        "ansi-styles": "^4.0.0",
+-        "string-width": "^4.1.0",
+-        "strip-ansi": "^6.0.0"
++        "fdir": "^6.5.0",
++        "picomatch": "^4.0.4"
+       },
+       "engines": {
+-        "node": ">=10"
++        "node": ">=12.0.0"
+       },
+       "funding": {
+-        "url": "https://github.com/chalk/wrap-ansi?sponsor=1"
++        "url": "https://github.com/sponsors/SuperchupuDev"
+       }
+     },
+-    "node_modules/npm/node_modules/wrap-ansi/node_modules/ansi-regex": {
+-      "version": "6.0.1",
++    "node_modules/npm/node_modules/tinyglobby/node_modules/fdir": {
++      "version": "6.5.0",
+       "inBundle": true,
+       "license": "MIT",
+       "engines": {
+-        "node": ">=12"
++        "node": ">=12.0.0"
+       },
+-      "funding": {
+-        "url": "https://github.com/chalk/ansi-regex?sponsor=1"
++      "peerDependencies": {
++        "picomatch": "^3 || ^4"
++      },
++      "peerDependenciesMeta": {
++        "picomatch": {
++          "optional": true
++        }
+       }
+     },
+-    "node_modules/npm/node_modules/wrap-ansi/node_modules/ansi-styles": {
+-      "version": "6.2.1",
++    "node_modules/npm/node_modules/tinyglobby/node_modules/picomatch": {
++      "version": "4.0.4",
+       "inBundle": true,
+       "license": "MIT",
+       "engines": {
+         "node": ">=12"
+       },
+       "funding": {
+-        "url": "https://github.com/chalk/ansi-styles?sponsor=1"
++        "url": "https://github.com/sponsors/jonschlinkert"
+       }
+     },
+-    "node_modules/npm/node_modules/wrap-ansi/node_modules/emoji-regex": {
+-      "version": "9.2.2",
++    "node_modules/npm/node_modules/treeverse": {
++      "version": "3.0.0",
+       "inBundle": true,
+-      "license": "MIT"
++      "license": "ISC",
++      "engines": {
++        "node": "^14.17.0 || ^16.13.0 || >=18.0.0"
++      }
+     },
+-    "node_modules/npm/node_modules/wrap-ansi/node_modules/string-width": {
+-      "version": "5.1.2",
++    "node_modules/npm/node_modules/tuf-js": {
++      "version": "4.1.0",
+       "inBundle": true,
+       "license": "MIT",
+       "dependencies": {
+-        "eastasianwidth": "^0.2.0",
+-        "emoji-regex": "^9.2.2",
+-        "strip-ansi": "^7.0.1"
++        "@tufjs/models": "4.1.0",
++        "debug": "^4.4.3",
++        "make-fetch-happen": "^15.0.1"
+       },
+       "engines": {
+-        "node": ">=12"
+-      },
+-      "funding": {
+-        "url": "https://github.com/sponsors/sindresorhus"
++        "node": "^20.17.0 || >=22.9.0"
+       }
+     },
+-    "node_modules/npm/node_modules/wrap-ansi/node_modules/strip-ansi": {
+-      "version": "7.1.0",
++    "node_modules/npm/node_modules/undici": {
++      "version": "6.28.0",
+       "inBundle": true,
+       "license": "MIT",
+-      "dependencies": {
+-        "ansi-regex": "^6.0.1"
+-      },
+       "engines": {
+-        "node": ">=12"
+-      },
+-      "funding": {
+-        "url": "https://github.com/chalk/strip-ansi?sponsor=1"
++        "node": ">=18.17"
+       }
+     },
+-    "node_modules/npm/node_modules/wrappy": {
++    "node_modules/npm/node_modules/util-deprecate": {
+       "version": "1.0.2",
+       "inBundle": true,
+-      "license": "ISC"
++      "license": "MIT"
++    },
++    "node_modules/npm/node_modules/validate-npm-package-name": {
++      "version": "7.0.2",
++      "inBundle": true,
++      "license": "ISC",
++      "engines": {
++        "node": "^20.17.0 || >=22.9.0"
++      }
++    },
++    "node_modules/npm/node_modules/walk-up-path": {
++      "version": "4.0.0",
++      "inBundle": true,
++      "license": "ISC",
++      "engines": {
++        "node": "20 || >=22"
++      }
++    },
++    "node_modules/npm/node_modules/which": {
++      "version": "6.0.1",
++      "inBundle": true,
++      "license": "ISC",
++      "dependencies": {
++        "isexe": "^4.0.0"
++      },
++      "bin": {
++        "node-which": "bin/which.js"
++      },
++      "engines": {
++        "node": "^20.17.0 || >=22.9.0"
++      }
+     },
+     "node_modules/npm/node_modules/write-file-atomic": {
+-      "version": "5.0.1",
++      "version": "7.0.1",
+       "inBundle": true,
+       "license": "ISC",
+       "dependencies": {
+-        "imurmurhash": "^0.1.4",
+         "signal-exit": "^4.0.1"
+       },
+       "engines": {
+-        "node": "^14.17.0 || ^16.13.0 || >=18.0.0"
++        "node": "^20.17.0 || >=22.9.0"
+       }
+     },
+     "node_modules/npm/node_modules/yallist": {
+-      "version": "4.0.0",
++      "version": "5.0.0",
+       "inBundle": true,
+-      "license": "ISC"
++      "license": "BlueOak-1.0.0",
++      "engines": {
++        "node": ">=18"
++      }
+     },
+     "node_modules/object-assign": {
+       "version": "4.1.1",
+@@ -25747,32 +24464,6 @@
+         "node": ">= 8"
+       }
+     },
+-    "node_modules/protobufjs": {
+-      "version": "6.11.6",
+-      "resolved": "https://registry.npmjs.org/protobufjs/-/protobufjs-6.11.6.tgz",
+-      "integrity": "sha512-k8BHqgPBOtrlougZZqF2uUk5Z7bN8f0wj+3e8M3hvtSv0NBAz4VBy5f6R5Nxq/l+i7mRFTgNZb2trxqTpHNY/A==",
+-      "hasInstallScript": true,
+-      "license": "BSD-3-Clause",
+-      "dependencies": {
+-        "@protobufjs/aspromise": "^1.1.2",
+-        "@protobufjs/base64": "^1.1.2",
+-        "@protobufjs/codegen": "^2.0.4",
+-        "@protobufjs/eventemitter": "^1.1.0",
+-        "@protobufjs/fetch": "^1.1.0",
+-        "@protobufjs/float": "^1.0.2",
+-        "@protobufjs/inquire": "^1.1.0",
+-        "@protobufjs/path": "^1.1.2",
+-        "@protobufjs/pool": "^1.1.0",
+-        "@protobufjs/utf8": "^1.1.0",
+-        "@types/long": "^4.0.1",
+-        "@types/node": ">=13.7.0",
+-        "long": "^4.0.0"
+-      },
+-      "bin": {
+-        "pbjs": "bin/pbjs",
+-        "pbts": "bin/pbts"
+-      }
+-    },
+     "node_modules/proxy-compare": {
+       "version": "2.5.1",
+       "resolved": "https://registry.npmjs.org/proxy-compare/-/proxy-compare-2.5.1.tgz",
+@@ -27839,9 +26530,7 @@
+       "version": "8.1.1",
+       "resolved": "https://registry.npmjs.org/supports-color/-/supports-color-8.1.1.tgz",
+       "integrity": "sha512-MpUEN2OodtUzxvKQl72cUF7RQ5EiHsGvSsVG0ia9c5RbWGL2CI4C7EpPS8UTBIplnlzZiNuV56w+FuNxy3ty2Q==",
+-      "dev": true,
+       "license": "MIT",
+-      "peer": true,
+       "dependencies": {
+         "has-flag": "^4.0.0"
+       },
+diff --git a/package.json b/package.json
+index ef414ae..4ba0c9e 100644
+--- a/package.json
++++ b/package.json
+@@ -11,7 +11,6 @@
+   },
+   "dependencies": {
+     "@bitgo/utxo-lib": "^1.9.5",
+-    "@confio/ics23": "^0.6.8",
+     "@cosmjs/amino": "^0.36.2",
+     "@cosmjs/crypto": "^0.36.2",
+     "@cosmjs/proto-signing": "^0.36.2",
+@@ -75,5 +74,11 @@
+     "tailwindcss": "^4.1.18",
+     "tw-animate-css": "^1.4.0",
+     "typescript": "^5"
++  },
++  "overrides": {
++    "protobufjs@^7": "7.6.6",
++    "@cardano-sdk/crypto": {
++      "npm": "11.19.1"
++    }
+   }
+ }
+diff --git a/src/app/api/memoless/api/v1/assets/route.ts b/src/app/api/memoless/api/v1/assets/route.ts
+index 4b15a57..6539173 100644
+--- a/src/app/api/memoless/api/v1/assets/route.ts
++++ b/src/app/api/memoless/api/v1/assets/route.ts
+@@ -1,42 +1,5 @@
+-/**
+- * Proxy for /memoless/api/v1/assets — memoless swap supported assets
+- * Fetches from THORNode pools and returns assets that support memoless
+- */
+ import { NextResponse } from 'next/server'
+ 
+-const THORNODE = 'https://thornode.ninerealms.com'
+-
+ export async function GET() {
+-  try {
+-    const poolsRes = await fetch(`${THORNODE}/thorchain/pools`, { next: { revalidate: 60 } })
+-    const pools = await poolsRes.json()
+-
+-    // Memoless swaps are supported for assets in available pools
+-    const assets = pools
+-      .filter((p: any) => p.status === 'Available')
+-      .map((p: any) => {
+-        const [chain, rest] = p.asset.split('.')
+-        const ticker = rest?.split('-')[0] || rest
+-        const decimals = ['ETH', 'BSC', 'AVAX', 'BASE'].includes(chain) ? 18 : 8
+-        const priceUSD = parseInt(p.balance_rune) > 0 && parseInt(p.balance_asset) > 0
+-          ? (parseInt(p.balance_rune) / parseInt(p.balance_asset))
+-          : 0
+-
+-        return {
+-          asset: p.asset,
+-          balanceRune: parseInt(p.balance_rune) / 1e8,
+-          decimals,
+-          isToken: p.asset.includes('-'),
+-          priceUSD,
+-          status: 'Available',
+-        }
+-      })
+-
+-    return NextResponse.json({
+-      assets,
+-      success: true,
+-    })
+-  } catch (err: any) {
+-    return NextResponse.json({ assets: [], success: false, error: { message: err.message } })
+-  }
++  return NextResponse.json({ assets: [], success: false, error: { message: 'Memoless registration service is not configured' } }, { status: 501 })
+ }
+diff --git a/src/app/api/v1/balance/route.ts b/src/app/api/v1/balance/route.ts
+index 2aa4e28..9862e22 100644
+--- a/src/app/api/v1/balance/route.ts
++++ b/src/app/api/v1/balance/route.ts
+@@ -1,12 +1,6 @@
+-/**
+- * Proxy for /v1/balance — fetches native + token balances
+- * For EVM chains: uses eth_getBalance via Arkeo sentinel RPCs
+- * For THORChain: uses Midgard
+- * Returns format expected by USwapApi.getChainBalance
+- */
++/** Native balances only. Token balances require a separate indexed service. */
+ import { NextRequest, NextResponse } from 'next/server'
+-
+-const MIDGARD = 'https://midgard.ninerealms.com'
++import { fetchReadJson, quoteEndpoints, fromThorBaseUnits } from '@/lib/thornode-client'
+ 
+ // Chain → RPC endpoint mapping (Arkeo sentinels via Caddy proxy)
+ const CHAIN_RPC: Record<string, string> = {
+@@ -28,87 +22,26 @@ const CHAIN_ASSETS: Record<string, { symbol: string; ticker: string; decimals: n
+   AVAX: { symbol: 'AVAX', ticker: 'AVAX', decimals: 18 },
+ }
+ 
+-async function getEvmBalance(chain: string, address: string) {
+-  const rpc = CHAIN_RPC[chain]
+-  if (!rpc) return []
+-
+-  const asset = CHAIN_ASSETS[chain]
+-  if (!asset) return []
+-
+-  try {
+-    const res = await fetch(rpc, {
+-      method: 'POST',
+-      headers: { 'Content-Type': 'application/json' },
+-      body: JSON.stringify({
+-        jsonrpc: '2.0',
+-        id: 1,
+-        method: 'eth_getBalance',
+-        params: [address, 'latest'],
+-      }),
+-    })
+-
+-    const data = await res.json()
+-    if (!data.result) return []
+-
+-    const balanceWei = BigInt(data.result)
+-    // SDK expects human-readable value (e.g. "0.0437"), not raw wei
+-    const divisor = BigInt(10 ** asset.decimals)
+-    const whole = balanceWei / divisor
+-    const remainder = balanceWei % divisor
+-    const remainderStr = remainder.toString().padStart(asset.decimals, '0')
+-    const humanValue = `${whole}.${remainderStr}`
+-
+-    return [{
+-      chain,
+-      identifier: `${chain}.${asset.symbol}`,
+-      symbol: asset.symbol,
+-      ticker: asset.ticker,
+-      value: humanValue,
+-      decimal: asset.decimals,
+-      isGasAsset: true,
+-    }]
+-  } catch (err: any) {
+-    console.error(`EVM balance error for ${chain}:`, err.message)
+-    return []
+-  }
+-}
+-
+-async function getThorchainBalance(address: string) {
+-  try {
+-    const res = await fetch(`${MIDGARD}/v2/balance/${address}`)
+-    if (!res.ok) return []
+-
+-    const data = await res.json()
+-    if (!data.coins) return []
+-
+-    return data.coins.map((c: any) => ({
+-      chain: c.asset?.split('.')[0] || 'THOR',
+-      identifier: c.asset || 'THOR.RUNE',
+-      symbol: c.asset?.split('.')[1] || 'RUNE',
+-      ticker: c.asset?.split('.')[1]?.split('-')[0] || 'RUNE',
+-      value: c.amount || '0',
+-      decimal: 8,
+-    }))
+-  } catch {
+-    return []
+-  }
+-}
+ 
+ export async function GET(req: NextRequest) {
+   const chain = req.nextUrl.searchParams.get('chain')?.toUpperCase()
+   const address = req.nextUrl.searchParams.get('address')
+-
+-  if (!chain || !address) {
+-    return NextResponse.json([], { status: 400 })
+-  }
+-
+-  let balances: any[] = []
+-
+-  if (chain === 'THOR' || chain === 'THORCHAIN') {
+-    balances = await getThorchainBalance(address)
+-  } else if (CHAIN_RPC[chain]) {
+-    balances = await getEvmBalance(chain, address)
+-  }
+-
+-  return NextResponse.json(balances)
++  if (!chain || !address) return NextResponse.json({error:'Chain and address required'},{status:400})
++  try {
++    if (chain === 'THOR' || chain === 'THORCHAIN') {
++      if (!/^thor1[023456789acdefghjklmnpqrstuvwxyz]{38}$/.test(address)) return NextResponse.json({error:'Invalid THORChain address'},{status:400})
++      const data = await fetchReadJson(`/cosmos/bank/v1beta1/balances/${encodeURIComponent(address)}/by_denom?denom=rune`,quoteEndpoints(),
++        (v): v is {balance:{denom:string,amount:string}} => !!v?.balance && v.balance.denom==='rune' && typeof v.balance.amount==='string' && /^\d+$/.test(v.balance.amount))
++      return NextResponse.json([{chain:'THOR',identifier:'THOR.RUNE',symbol:'RUNE',ticker:'RUNE',value:fromThorBaseUnits(data.balance.amount),decimal:8,isGasAsset:true}])
++    }
++    if (!CHAIN_RPC[chain]) return NextResponse.json({error:'Balance service unsupported for this chain'},{status:422})
++    if (!/^0x[a-fA-F0-9]{40}$/.test(address)) return NextResponse.json({error:'Invalid EVM address'},{status:400})
++    const endpoints=quoteEndpoints(process.env[`${chain}_RPC_URLS`] || CHAIN_RPC[chain])
++    const data=await fetchReadJson('/',endpoints,
++      (v): v is {result:string} => !!v && !v.error && v.id===1 && typeof v.result==='string' && /^0x[0-9a-fA-F]+$/.test(v.result),
++      fetch,{jsonrpc:'2.0',id:1,method:'eth_getBalance',params:[address,'latest']})
++    const asset=CHAIN_ASSETS[chain], amount=BigInt(data.result), divisor=10n**BigInt(asset.decimals)
++    return NextResponse.json([{chain,identifier:`${chain}.${asset.symbol}`,symbol:asset.symbol,ticker:asset.ticker,
++      value:`${amount/divisor}.${(amount%divisor).toString().padStart(asset.decimals,'0')}`,decimal:asset.decimals,isGasAsset:true}])
++  } catch { return NextResponse.json({error:'Balance data unavailable'},{status:503}) }
+ }
+diff --git a/src/app/api/v1/gas/route.ts b/src/app/api/v1/gas/route.ts
+index 714cb6d..cc06b44 100644
+--- a/src/app/api/v1/gas/route.ts
++++ b/src/app/api/v1/gas/route.ts
+@@ -3,7 +3,7 @@
+  */
+ import { NextResponse } from 'next/server'
+ 
+-const THORNODE = 'https://thornode.ninerealms.com'
++import { fetchReadJson, quoteEndpoints } from '@/lib/thornode-client'
+ 
+ const CHAIN_IDS: Record<string, string> = {
+   ETH: 'ethereum',
+@@ -20,19 +20,18 @@ const CHAIN_IDS: Record<string, string> = {
+ 
+ export async function GET() {
+   try {
+-    const res = await fetch(`${THORNODE}/thorchain/inbound_addresses`, { next: { revalidate: 30 } })
+-    const inbounds = await res.json()
++    const inbounds = await fetchReadJson('/thorchain/inbound_addresses', quoteEndpoints(), (v): v is any[] => Array.isArray(v) && v.every(x => x && typeof x.chain === 'string' && /^\d+$/.test(x.gas_rate) && typeof x.gas_rate_units === 'string'))
+ 
+-    const gasRates = inbounds.map((ib: any, i: number) => ({
++    const gasRates = inbounds.filter(ib => ib.halted === false && ib.chain_trading_paused !== true).map((ib: any, i: number) => ({
+       id: i + 1,
+       chainId: CHAIN_IDS[ib.chain] || ib.chain.toLowerCase(),
+-      value: ib.gas_rate || '0',
+-      unit: ib.gas_rate_units || 'satsperbyte',
++      value: ib.gas_rate,
++      unit: ib.gas_rate_units,
+       createdAt: new Date().toISOString(),
+     }))
+ 
+     return NextResponse.json(gasRates)
+   } catch (err: any) {
+-    return NextResponse.json([], { status: 500 })
++    return NextResponse.json({ error: 'Gas data unavailable' }, { status: 503 })
+   }
+ }
+diff --git a/src/app/api/v1/price/route.ts b/src/app/api/v1/price/route.ts
+index 875bfb8..fd688da 100644
+--- a/src/app/api/v1/price/route.ts
++++ b/src/app/api/v1/price/route.ts
+@@ -1,50 +1,24 @@
+-/**
+- * Proxy for /v1/price — asset prices from pool depth ratios + CoinGecko
+- */
+ import { NextRequest, NextResponse } from 'next/server'
+-
+-const MIDGARD = 'https://midgard.ninerealms.com'
+-const COINGECKO = 'https://api.coingecko.com/api/v3'
++import { fetchReadJson, midgardEndpoints } from '@/lib/thornode-client'
+ 
+ export async function POST(req: NextRequest) {
++  let tokens: unknown
++  try { ({ tokens } = await req.json()) } catch { return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 }) }
++  if (!Array.isArray(tokens) || tokens.length > 200) return NextResponse.json({ error: 'Invalid token list' }, { status: 400 })
++  const ids = tokens.map(t => typeof t === 'string' ? t : t?.identifier)
++  if (ids.some(id => typeof id !== 'string' || !/^[A-Z0-9]+[.][A-Za-z0-9-]+$/.test(id))) {
++    return NextResponse.json({ error: 'Invalid asset identifier' }, { status: 400 })
++  }
+   try {
+-    const body = await req.json()
+-    const tokens = body?.tokens || []
+-
+-    // Get pool prices from Midgard
+-    const poolsRes = await fetch(`${MIDGARD}/v2/pools`, { next: { revalidate: 30 } })
+-    const pools = await poolsRes.json()
+-
+-    // Build price map from pool data (price = RUNE side / asset side, adjusted)
+-    const priceMap: Record<string, number> = {}
+-    for (const pool of pools) {
+-      if (pool.assetPriceUSD) {
+-        priceMap[pool.asset] = parseFloat(pool.assetPriceUSD)
+-      }
++    const endpoints = midgardEndpoints()
++    const pools = await fetchReadJson('/v2/pools', endpoints, (v): v is any[] => Array.isArray(v) && v.every(p => p && typeof p.asset === 'string'))
++    const prices = new Map<string,number>()
++    for (const p of pools) { const n=Number(p.assetPriceUSD); if(Number.isFinite(n) && n>0) prices.set(p.asset,n) }
++    if (ids.includes('THOR.RUNE')) {
++      const stats = await fetchReadJson('/v2/stats', endpoints, (v): v is {runePriceUSD:string} => !!v && Number.isFinite(Number(v.runePriceUSD)) && Number(v.runePriceUSD)>0)
++      prices.set('THOR.RUNE',Number(stats.runePriceUSD))
+     }
+-
+-    // RUNE price from Midgard stats
+-    try {
+-      const statsRes = await fetch(`${MIDGARD}/v2/stats`, { next: { revalidate: 60 } })
+-      const stats = await statsRes.json()
+-      if (stats.runePriceUSD) {
+-        priceMap['THOR.RUNE'] = parseFloat(stats.runePriceUSD)
+-      }
+-    } catch {}
+-
+-    const results = tokens.map((t: any) => {
+-      const identifier = t.identifier || t
+-      const price = priceMap[identifier]
+-      return {
+-        identifier,
+-        price_usd: price || 0,
+-        provider: 'thorchain',
+-        timestamp: Date.now(),
+-      }
+-    })
+-
+-    return NextResponse.json(results)
+-  } catch (err: any) {
+-    return NextResponse.json([])
+-  }
++    // Omit unavailable prices; zero falsely describes a real market price.
++    return NextResponse.json(ids.filter(id => prices.has(id)).map(identifier => ({identifier,price_usd:prices.get(identifier),provider:'thorchain',timestamp:Date.now()})))
++  } catch { return NextResponse.json({ error: 'Price data unavailable' }, { status: 503 }) }
+ }
+diff --git a/src/app/api/v1/providers/route.ts b/src/app/api/v1/providers/route.ts
+index 21ab425..1357dff 100644
+--- a/src/app/api/v1/providers/route.ts
++++ b/src/app/api/v1/providers/route.ts
+@@ -6,6 +6,6 @@ import { NextResponse } from 'next/server'
+ export async function GET() {
+   return NextResponse.json([
+     { provider: 'THORCHAIN', enabled: true },
+-    { provider: 'MAYACHAIN', enabled: true },
++    { provider: 'MAYACHAIN', enabled: false },
+   ])
+ }
+diff --git a/src/app/api/v1/quote/route.ts b/src/app/api/v1/quote/route.ts
+index e3d010f..abd7bbb 100644
+--- a/src/app/api/v1/quote/route.ts
++++ b/src/app/api/v1/quote/route.ts
+@@ -3,19 +3,24 @@
+  * Replaces the gated api.thorchain.org/v1/quote endpoint
+  */
+ import { NextRequest, NextResponse } from 'next/server'
+-import { toThorBaseUnits, fromThorBaseUnits, fetchThorQuote, QuoteInputError, QuoteUnavailableError } from '@/lib/thornode-client'
++import { toThorBaseUnits, fromThorBaseUnits, fetchThorQuote, QuoteInputError, QuoteUnavailableError, minimumOutput } from '@/lib/thornode-client'
+ 
+ export async function POST(req: NextRequest) {
+   try {
+     const body = await req.json()
+     
+-    const { sellAsset, buyAsset, sellAmount, slippage, providers, sourceAddress, destinationAddress } = body
++    if (!body || typeof body !== 'object' || Array.isArray(body)) throw new QuoteInputError('Invalid request')
++    const { sellAsset, buyAsset, sellAmount, slippage = 3, providers, sourceAddress, destinationAddress } = body
++    if (providers !== undefined && (!Array.isArray(providers) || !providers.length || providers.some((p: unknown) => p !== 'THORCHAIN' && p !== 'THORCHAIN_STREAMING'))) throw new QuoteInputError('Unsupported quote provider')
++    for (const address of [sourceAddress, destinationAddress]) {
++      if (address !== undefined && (typeof address !== 'string' || address.length > 128 || /[:\s]/.test(address))) throw new QuoteInputError('Invalid address')
++    }
+ 
+-    if (typeof sellAsset !== 'string' || typeof buyAsset !== 'string' || !sellAsset || !buyAsset) {
++    if (typeof sellAsset !== 'string' || typeof buyAsset !== 'string' || !/^[A-Z0-9]+[.][A-Za-z0-9-]+$/.test(sellAsset) || !/^[A-Z0-9]+[.][A-Za-z0-9-]+$/.test(buyAsset) || sellAsset === buyAsset) {
+       throw new QuoteInputError('Sell and buy assets are required')
+     }
+-    if (slippage !== undefined && (typeof slippage !== 'number' || !Number.isFinite(slippage) || slippage < 0 || slippage > 100)) {
+-      throw new QuoteInputError('Slippage must be between 0 and 100')
++    if (slippage !== undefined && (typeof slippage !== 'number' || !Number.isFinite(slippage) || slippage < 0 || slippage >= 100)) {
++      throw new QuoteInputError('Slippage must be at least 0 and less than 100')
+     }
+     // Build thornode quote URL
+     const params = new URLSearchParams({
+@@ -26,8 +31,9 @@ export async function POST(req: NextRequest) {
+ 
+     if (destinationAddress) params.append('destination', destinationAddress)
+     if (sourceAddress) params.append('from_address', sourceAddress)
+-    if (slippage !== undefined) params.append('tolerance_bps', Math.round(slippage * 100).toString())
++    if (slippage !== undefined) params.append('liquidity_tolerance_bps', Math.round(slippage * 100).toString())
+     params.append('streaming_interval', '1')
++    params.append('streaming_quantity', '0')
+ 
+     const data = await fetchThorQuote(params)
+ 
+@@ -44,15 +50,17 @@ export async function POST(req: NextRequest) {
+ 
+     // Convert thornode response to SDK format
+     const expectedOut = fromThorBaseUnits(data.expected_amount_out)
+-    const expectedOutMax = fromThorBaseUnits(data.expected_amount_out_streaming || data.expected_amount_out)
++    const expectedOutMax = minimumOutput(data.expected_amount_out, Math.round(slippage * 100))
+ 
+     const route = {
+       buyAsset,
+       sellAsset,
+       sellAmount,
++      sourceAddress,
++      destinationAddress,
+       expectedBuyAmount: expectedOut,
+       expectedBuyAmountMaxSlippage: expectedOutMax,
+-      providers: ['THORCHAIN'] as any,
++      providers: ['THORCHAIN_STREAMING'] as any,
+       fees: [
+         {
+           type: 'liquidity',
+@@ -73,40 +81,21 @@ export async function POST(req: NextRequest) {
+       inboundAddress: data.inbound_address,
+       expiration: data.expiry?.toString(),
+       estimatedTime: {
+-        total: (data.inbound_confirmation_seconds || 0) + (data.outbound_delay_seconds || 0),
++        total: (data.total_swap_seconds || ((data.inbound_confirmation_seconds || 0) + (data.outbound_delay_seconds || 0) + (data.streaming_swap_seconds || 0))),
+         inbound: data.inbound_confirmation_seconds,
+         outbound: data.outbound_delay_seconds,
+       },
+       warnings: [],
++      protocolWarnings: [data.warning, data.notes].filter(Boolean),
+       meta: {
+         priceImpact: data.fees?.slippage_bps ? data.fees.slippage_bps / 100 : undefined,
+         streamingInterval: data.streaming_swap_seconds ? 1 : undefined,
+       } as any,
+     }
+ 
+-    // Also add a streaming variant if available
++    // One quote produces one executable memo; never synthesize another route.
+     const routes = [route]
+ 
+-    if (data.streaming_swap_seconds && data.expected_amount_out_streaming) {
+-      const streamingOut = fromThorBaseUnits(data.expected_amount_out_streaming)
+-      routes.unshift({
+-        ...route,
+-        expectedBuyAmount: streamingOut,
+-        expectedBuyAmountMaxSlippage: streamingOut,
+-        providers: ['THORCHAIN_STREAMING'] as any,
+-        estimatedTime: {
+-          total: (data.inbound_confirmation_seconds || 0) + (data.streaming_swap_seconds || 0),
+-          inbound: data.inbound_confirmation_seconds,
+-          outbound: data.streaming_swap_seconds,
+-        },
+-        meta: {
+-          ...route.meta,
+-          maxStreamingQuantity: data.streaming_swap_blocks,
+-          streamingInterval: 1,
+-        } as any,
+-      })
+-    }
+-
+     return NextResponse.json({ routes })
+   } catch (err: any) {
+     const status = err instanceof QuoteInputError || err instanceof SyntaxError ? 400 : 503
+diff --git a/src/app/api/v1/tokens/route.ts b/src/app/api/v1/tokens/route.ts
+index 5ed4827..6682782 100644
+--- a/src/app/api/v1/tokens/route.ts
++++ b/src/app/api/v1/tokens/route.ts
+@@ -4,8 +4,7 @@
+  */
+ import { NextRequest, NextResponse } from 'next/server'
+ 
+-const THORNODE = 'https://thornode.ninerealms.com'
+-const MIDGARD = 'https://midgard.ninerealms.com'
++import { fetchReadJson, quoteEndpoints } from '@/lib/thornode-client'
+ 
+ // Logo mapping for major assets
+ const LOGOS: Record<string, string> = {
+@@ -36,33 +35,6 @@ const CHAIN_IDS: Record<string, string> = {
+   THOR: 'thorchain-1',
+ }
+ 
+-// Chain to decimals
+-const CHAIN_DECIMALS: Record<string, number> = {
+-  ETH: 18,
+-  BSC: 18,
+-  AVAX: 18,
+-  BASE: 18,
+-  BTC: 8,
+-  BCH: 8,
+-  LTC: 8,
+-  DOGE: 8,
+-  GAIA: 6,
+-  THOR: 8,
+-}
+-
+-function getAssetDecimals(asset: string): number {
+-  const chain = asset.split('.')[0]
+-  // ERC20/BEP20 tokens - check if it has a contract address
+-  if (asset.includes('-')) {
+-    // Most ERC20 tokens are 18 decimals, USDC/USDT are 6
+-    const symbol = asset.split('.')[1].split('-')[0]
+-    if (['USDC', 'USDT'].includes(symbol)) return 6
+-    if (['WBTC', 'BTCB'].includes(symbol)) return 8
+-    return 18
+-  }
+-  return CHAIN_DECIMALS[chain] || 8
+-}
+-
+ function parseAssetIdentifier(asset: string) {
+   const [chain, rest] = asset.split('.')
+   const parts = rest?.split('-') || [rest]
+@@ -77,8 +49,8 @@ export async function GET(req: NextRequest) {
+   
+   try {
+     // Fetch pools from public thornode
+-    const poolsRes = await fetch(`${THORNODE}/thorchain/pools`, { next: { revalidate: 60 } })
+-    const pools = await poolsRes.json()
++    if (!['THORCHAIN','THORCHAIN_STREAMING'].includes(provider)) return NextResponse.json({ tokens: [], error: 'Provider unsupported' }, { status: 422 })
++    const pools = await fetchReadJson('/thorchain/pools', quoteEndpoints(), (v): v is any[] => Array.isArray(v) && v.every(p => p && typeof p.asset === 'string'))
+ 
+     const tokens: any[] = []
+ 
+@@ -102,7 +74,8 @@ export async function GET(req: NextRequest) {
+       if (pool.status !== 'Available') continue
+ 
+       const parsed = parseAssetIdentifier(pool.asset)
+-      const decimals = getAssetDecimals(pool.asset)
++      const decimals = Number(pool.decimals)
++      if (pool.decimals === undefined || !Number.isInteger(decimals) || decimals < 0 || decimals > 30) continue
+       const logo = LOGOS[pool.asset] || `https://static.thorswap.net/token-list/images/${pool.asset.toLowerCase()}.png`
+ 
+       tokens.push({
+@@ -122,7 +95,6 @@ export async function GET(req: NextRequest) {
+ 
+     return NextResponse.json({ tokens, count: tokens.length })
+   } catch (err: any) {
+-    console.error('Token list error:', err.message)
+-    return NextResponse.json({ tokens: [], count: 0, error: err.message }, { status: 500 })
++    return NextResponse.json({ tokens: [], count: 0, error: 'Token data unavailable' }, { status: 503 })
+   }
+ }
+diff --git a/src/app/api/v1/track/route.ts b/src/app/api/v1/track/route.ts
+index 58c218d..7860480 100644
+--- a/src/app/api/v1/track/route.ts
++++ b/src/app/api/v1/track/route.ts
+@@ -1,39 +1,19 @@
+-/**
+- * Proxy for /v1/track — transaction tracking
+- * Uses Midgard actions endpoint for tx tracking
+- */
+ import { NextRequest, NextResponse } from 'next/server'
+-
+-const MIDGARD = 'https://midgard.ninerealms.com'
++import { fetchReadJson, midgardEndpoints } from '@/lib/thornode-client'
+ 
+ export async function POST(req: NextRequest) {
++  let hash: unknown
++  try { ({ hash } = await req.json()) } catch { return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 }) }
++  if (typeof hash !== 'string' || !/^(0x)?[a-fA-F0-9]{64}$/.test(hash)) {
++    return NextResponse.json({ error: 'A transaction hash is required' }, { status: 400 })
++  }
+   try {
+-    const body = await req.json()
+-    const { hash, chainId } = body
+-
+-    if (hash) {
+-      // Try to find the tx in Midgard
+-      const res = await fetch(`${MIDGARD}/v2/actions?txid=${hash}&limit=1`)
+-      if (res.ok) {
+-        const data = await res.json()
+-        if (data.actions?.length > 0) {
+-          const action = data.actions[0]
+-          return NextResponse.json({
+-            hash,
+-            status: action.status === 'success' ? 'completed' : action.status,
+-            legs: [],
+-          })
+-        }
+-      }
+-    }
+-
+-    // Return pending status for unknown txs (expected for in-flight)
+-    return NextResponse.json({
+-      hash: hash || '',
+-      status: 'pending',
+-      legs: [],
+-    })
+-  } catch (err: any) {
+-    return NextResponse.json({ hash: '', status: 'unknown', legs: [] })
++    const data = await fetchReadJson(`/v2/actions?txid=${encodeURIComponent(hash)}&limit=1`, midgardEndpoints(),
++      (v): v is {actions: {status:string}[]} => !!v && Array.isArray(v.actions) && v.actions.every((a:any) => a && typeof a.status === 'string'))
++    const status = data.actions[0]?.status
++    // No indexed action cannot prove that a broadcast succeeded or is pending.
++    return NextResponse.json({ hash, status: status === 'success' ? 'completed' : status || 'unknown', legs: [] })
++  } catch {
++    return NextResponse.json({ hash, status: 'unknown', error: 'Tracking data unavailable', legs: [] }, { status: 503 })
+   }
+ }
+diff --git a/src/components/swap/swap-dialog.tsx b/src/components/swap/swap-dialog.tsx
+index c31840a..06d4213 100644
+--- a/src/components/swap/swap-dialog.tsx
++++ b/src/components/swap/swap-dialog.tsx
+@@ -36,6 +36,11 @@ export const SwapDialog = ({ provider, isOpen, onOpenChange }: SwapDialogProps)
+   const onConfirm = () => {
+     if (!quote || !assetFrom || !assetTo) return
+ 
++    if (!quote.expiration || Number(quote.expiration) <= Date.now() / 1000) {
++      toast.error('Quote expired. Request a new quote before confirming.')
++      setQuote(undefined)
++      return
++    }
+     setSubmitting(true)
+ 
+     const broadcast = uSwap
+diff --git a/src/lib/api.ts b/src/lib/api.ts
+index 7bf4db8..eca5616 100644
+--- a/src/lib/api.ts
++++ b/src/lib/api.ts
+@@ -11,7 +11,7 @@ const uSwap = axios.create({
+ })
+ 
+ // Route THORNode RPC through Arkeo sentinel when configured
+-const thornodeBaseUrl = getArkeoRpcUrl('thorchain') || 'https://thornode.ninerealms.com'
++const thornodeBaseUrl = getArkeoRpcUrl('thorchain') || 'https://gateway.liquify.com/chain/thorchain_api'
+ const thornode = axios.create({ baseURL: thornodeBaseUrl })
+ const coingecko = axios.create({ baseURL: 'https://api.coingecko.com/api/v3' })
+ 
+diff --git a/src/lib/arkeo-provider.ts b/src/lib/arkeo-provider.ts
+index 9152267..68dd250 100644
+--- a/src/lib/arkeo-provider.ts
++++ b/src/lib/arkeo-provider.ts
+@@ -19,7 +19,7 @@
+ 
+ const ARKEO_ENABLED = process.env.NEXT_PUBLIC_ARKEO_ENABLED === 'true'
+ 
+-// All active Arkeo provider sentinels (verified online)
++// Candidate provider configuration; availability must be verified before rollout.
+ // Direct URLs for server-side / development, proxy paths for HTTPS production
+ const ARKEO_PROVIDERS_DIRECT = {
+   liquify: { name: 'Liquify', url: 'https://arkeo-provider.liquify.com' },
+@@ -55,7 +55,7 @@ type ProviderId = keyof typeof ARKEO_PROVIDERS
+ 
+ // Chain → ordered list of Arkeo providers (primary first, then failovers)
+ // Service names MUST match what's registered on the Arkeo chain
+-// Only includes providers verified responding as of 2026-03-17
++// Historical candidate list; this is not a current health assertion.
+ const ARKEO_CHAIN_PROVIDERS: Record<string, { provider: ProviderId; service: string }[]> = {
+   ethereum: [
+     { provider: 'oxfury', service: 'eth-mainnet-fullnode' },
+@@ -87,7 +87,7 @@ const ARKEO_CHAIN_PROVIDERS: Record<string, { provider: ProviderId; service: str
+ 
+ // Fallback endpoints when all Arkeo providers fail
+ const FALLBACK_ENDPOINTS: Record<string, string[]> = {
+-  thorchain: ['https://thornode.ninerealms.com'],
++  thorchain: ['https://gateway.liquify.com/chain/thorchain_api'],
+   ethereum: ['https://eth.llamarpc.com', 'https://ethereum-rpc.publicnode.com'],
+   base: ['https://mainnet.base.org'],
+   bsc: ['https://bsc-dataseed.binance.org'],
+diff --git a/src/lib/thornode-client.ts b/src/lib/thornode-client.ts
+index 5a913a9..458d080 100644
+--- a/src/lib/thornode-client.ts
++++ b/src/lib/thornode-client.ts
+@@ -20,7 +20,7 @@ export function fromThorBaseUnits(value: string): string {
+ }
+ 
+ export function quoteEndpoints(raw = process.env.THORNODE_URLS): string[] {
+-  const entries = (raw || 'https://thornode.ninerealms.com').split(',').map(s => s.trim()).filter(Boolean)
++  const entries = (raw || 'https://gateway.liquify.com/chain/thorchain_api,https://thornode.thorchain.network').split(',').map(s => s.trim()).filter(Boolean)
+   if (!entries.length || entries.length > 3) throw new QuoteUnavailableError('Configure one to three THORNode endpoints')
+   return [...new Set(entries.map(entry => {
+     const url = new URL(entry)
+@@ -39,7 +39,7 @@ export async function fetchThorQuote(params: URLSearchParams, endpoints = quoteE
+         cache: 'no-store', redirect: 'error', signal: AbortSignal.timeout(2500),
+       })
+       if ([408, 429, 500, 502, 503, 504].includes(response.status)) { await response.body?.cancel(); continue }
+-      const data = await response.json()
++      const data = await boundedJson(response)
+       // A protocol rejection is useful information, not a provider outage.
+       if (data && typeof data.error === 'string' && data.error) return data
+       if (!response.ok || !data || typeof data !== 'object' || Array.isArray(data)) continue
+@@ -57,3 +57,55 @@ export async function fetchThorQuote(params: URLSearchParams, endpoints = quoteE
+   }
+   throw new QuoteUnavailableError('Quote providers unavailable')
+ }
++
++/** Bound decoded bytes as well as transfer time; never use for transaction submission. */
++export async function boundedJson(response: Response, maxBytes = 2 * 1024 * 1024): Promise<any> {
++  if (!response.body) throw new QuoteUnavailableError('Empty upstream response')
++  const reader = response.body.getReader()
++  const chunks: Uint8Array[] = []
++  let size = 0
++  try {
++    while (true) {
++      const { done, value } = await reader.read()
++      if (done) break
++      size += value.byteLength
++      if (size > maxBytes) throw new QuoteUnavailableError('Upstream response exceeds limit')
++      chunks.push(value)
++    }
++  } finally {
++    await reader.cancel().catch(() => {})
++    reader.releaseLock()
++  }
++  const bytes = new Uint8Array(size)
++  let offset = 0
++  for (const chunk of chunks) { bytes.set(chunk, offset); offset += chunk.length }
++  return JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(bytes))
++}
++
++export function midgardEndpoints() {
++  return quoteEndpoints(process.env.MIDGARD_URLS || 'https://gateway.liquify.com/chain/thorchain_midgard,https://midgard.thorchain.network')
++}
++
++export async function fetchReadJson<T>(path: string, endpoints: string[], valid: (data: any) => data is T,
++                                      send: typeof fetch = fetch, rpcBody?: object): Promise<T> {
++  if (!path.startsWith('/') || path.startsWith('//')) throw new QuoteInputError('Invalid API path')
++  for (const endpoint of endpoints.slice(0, 3)) {
++    try {
++      const response = await send(endpoint + path, {
++        method: rpcBody ? 'POST' : 'GET', cache: 'no-store', redirect: 'error', signal: AbortSignal.timeout(2500),
++        ...(rpcBody ? { headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(rpcBody) } : {}),
++      })
++      if (!response.ok) { await response.body?.cancel(); continue }
++      const data = await boundedJson(response)
++      if (valid(data)) return data
++    } catch { /* Read-only failover. No credentials or response bodies in errors. */ }
++  }
++  throw new QuoteUnavailableError('Upstream data unavailable')
++}
++
++export function minimumOutput(amount: string, slippageBps: number): string {
++  if (!Number.isInteger(slippageBps) || slippageBps < 0 || slippageBps >= 10000 || !/^\d+$/.test(amount)) {
++    throw new QuoteInputError('Invalid slippage or amount')
++  }
++  return fromThorBaseUnits((BigInt(amount) * BigInt(10000 - slippageBps) / 10000n).toString())
++}
+diff --git a/tests/api-routes.test.ts b/tests/api-routes.test.ts
+new file mode 100644
+index 0000000..b262e50
+--- /dev/null
++++ b/tests/api-routes.test.ts
+@@ -0,0 +1,56 @@
++import test from 'node:test'
++import assert from 'node:assert/strict'
++import fs from 'node:fs'
++import vm from 'node:vm'
++import ts from 'typescript'
++import { QuoteResponseRouteItem } from '@tcswap/helpers/api'
++import * as transport from '../src/lib/thornode-client.ts'
++
++function route(name:string, send:typeof fetch) {
++  const exports: any = {}
++  // Compile the actual Next handler while replacing only HTTP framework and transport.
++  const code=ts.transpileModule(fs.readFileSync(new URL(`../src/app/api/v1/${name}/route.ts`,import.meta.url),'utf8'),
++    {compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText
++  vm.runInNewContext(code,{exports, URLSearchParams, Date, BigInt, Number, process, fetch:send,
++    require:(name:string) => name==='next/server' ? {NextResponse:{json:(body:any,options:any={})=>({body,status:options.status||200})}} : {
++      ...transport,
++      fetchReadJson:(path:string,endpoints:string[],valid:any,_send?:typeof fetch,body?:object) => transport.fetchReadJson(path,endpoints,valid,send,body),
++      fetchThorQuote:(params:URLSearchParams) => transport.fetchThorQuote(params,['https://fixture.example'],send),
++    }})
++  return exports
++}
++const request=(body:any)=>({json:async()=>body})
++const down:typeof fetch=async()=>new Response('',{status:503})
++test('balance outage is an error rather than zero or empty success',async()=>{
++ const result=await route('balance',down).GET({nextUrl:new URL('https://local/?chain=ETH&address=0x'+'1'.repeat(40))})
++ assert.equal(result.status,503)
++})
++test('tracking outage and a genuinely absent indexed action are distinct',async()=>{
++ const req=request({hash:'a'.repeat(64)})
++ assert.equal((await route('track',down).POST(req)).status,503)
++ const unknown=await route('track',async()=>Response.json({actions:[]})).POST(req)
++ assert.equal(unknown.status,200);assert.equal(unknown.body.status,'unknown')
++ assert.equal((await route('track',down).POST(request({hash:'abc&txid=injected'}))).status,400)
++})
++test('gas excludes halted chains and rejects malformed rates',async()=>{
++ const good=await route('gas',async()=>Response.json([{chain:'BTC',gas_rate:'4',gas_rate_units:'satsperbyte',halted:true}])).GET()
++ assert.equal(good.status,200);assert.equal(good.body.length,0)
++ assert.equal((await route('gas',async()=>Response.json([{chain:'BTC'}])).GET()).status,503)
++})
++test('quote preserves destinations and uses a single streaming memo with a real minimum',async()=>{
++ let url=''
++ const api=route('quote',async input=>{url=String(input);return Response.json({memo:'=:ETH.ETH:recipient:97000000/1/0',inbound_address:'vault',
++  expected_amount_out:'100000000',expiry:Math.floor(Date.now()/1000)+60,fees:{liquidity:'1',outbound:'2'},streaming_swap_seconds:6})})
++ const result=await api.POST(request({sellAsset:'BTC.BTC',buyAsset:'ETH.ETH',sellAmount:'1',slippage:3,sourceAddress:'sender',destinationAddress:'recipient'}))
++ assert.equal(result.status,200);assert.equal(result.body.routes.length,1)
++ const quoted=result.body.routes[0]
++ const parsed=QuoteResponseRouteItem.safeParse(quoted)
++ assert.ok(parsed.success,JSON.stringify(parsed))
++ assert.equal(quoted.destinationAddress,'recipient');assert.equal(quoted.expectedBuyAmountMaxSlippage,'0.97')
++ assert.ok(url.includes('liquidity_tolerance_bps=300'));assert.ok(url.includes('streaming_quantity=0'))
++ assert.equal((await api.POST(request({sellAsset:'BTC.BTC',buyAsset:'ETH.ETH',sellAmount:'1',slippage:100}))).status,400)
++})
++test('tokens use protocol decimals rather than ticker guesses',async()=>{
++ const result=await route('tokens',async()=>Response.json([{asset:'ETH.USDC-0x123',status:'Available',decimals:6},{asset:'ETH.UNVERIFIED-0x456',status:'Available'}])).GET({nextUrl:new URL('https://local/')})
++ assert.equal(result.body.tokens.length,2);assert.equal(result.body.tokens[1].decimals,6)
++})
+diff --git a/tests/thornode-client.test.ts b/tests/thornode-client.test.ts
+index 085bf34..551be5f 100644
+--- a/tests/thornode-client.test.ts
++++ b/tests/thornode-client.test.ts
+@@ -1,6 +1,6 @@
+ import test from 'node:test'
+ import assert from 'node:assert/strict'
+-import { toThorBaseUnits, fromThorBaseUnits, fetchThorQuote, quoteEndpoints } from '../src/lib/thornode-client.ts'
++import { toThorBaseUnits, fromThorBaseUnits, fetchThorQuote, quoteEndpoints, boundedJson, fetchReadJson, minimumOutput } from '../src/lib/thornode-client.ts'
+ const quote = () => ({memo:'=:ETH.ETH:test',inbound_address:'test-vault',expected_amount_out:'9007199254740993',expiry:Math.floor(Date.now()/1000)+60,fees:{liquidity:'1',outbound:'2'}})
+ test('amount conversion never uses floating-point arithmetic',()=>{
+  assert.equal(toThorBaseUnits('0.00000001'),'1')
+@@ -31,3 +31,15 @@ test('operator URLs reject credentials and plaintext',()=>{
+  assert.throws(()=>quoteEndpoints('http://provider.example'));assert.throws(()=>quoteEndpoints('https://secret@provider.example'))
+  assert.deepEqual(quoteEndpoints('https://provider.example,https://provider.example/'),['https://provider.example'])
+ })
++
++test('decoded JSON size is bounded and malformed reads fail over',async()=>{
++ await assert.rejects(boundedJson(new Response('x'.repeat(101)),100),/limit/)
++ let calls=0
++ const result=await fetchReadJson('/data',['https://a.example','https://b.example'],(v):v is {ok:boolean}=>v?.ok===true,
++  async()=>Response.json(++calls===1?{wrong:true}:{ok:true}))
++ assert.equal(calls,2);assert.equal(result.ok,true)
++})
++test('minimum output uses exact integer arithmetic',()=>{
++ assert.equal(minimumOutput('9007199254740993',300),'87369832.77098763')
++ assert.throws(()=>minimumOutput('100',10000))
++})
